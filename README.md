@@ -18,12 +18,30 @@ reusable.
   lock-and-key, depth-scaled enemies, vault boss; content + stat blocks injected.
 - **Overworld travel FSM** — departing → traveling (encounters / discoveries) →
   arriving.
+- **Narrative runtime engines** — a flag-gated red-thread *beat* evaluator and
+  *faction-reputation* math (standings, merchant prices, hostility) — the engines
+  that consume what the worldgen blueprint's `beatsHints` / `factionsHints`
+  constrain the AI to produce, plus the JSON-schema contracts for every layer.
+- **Settlement economy** — pure trade, quest state, inventory, and per-NPC
+  dialogue-memory helpers over the generated settlements + NPCs.
+
+```sh
+npm i @zeeuw/bag-of-holding-client
+```
 
 ```js
 import {
-  createLlmConfig, chatCompletion, chatStream,        // (host builds config)
-  buildBlueprint, runPipeline, generateDungeon, runTravel,
+  chatCompletion, chatStream,                         // structured + streaming LLM
+  buildBlueprint, runPipeline, WORLD_SEED_SCHEMA,     // layered worldgen
+  generateDungeon, runTravel,                         // dungeon + overworld
+  currentBeat, completeBeat, adjustReputation,        // narrative engines
+  resolvePurchase, makeQuest,                         // settlement economy
 } from '@zeeuw/bag-of-holding-client';
+
+// Every entry point is config-injected — the host builds a plain object and
+// passes it in; the library never reads globals:
+const config = { key: MY_OPENROUTER_KEY, models: { medium: 'deepseek/deepseek-chat' } };
+const out = await chatCompletion(config, { tier: 'medium', messages, schema: WORLD_SEED_SCHEMA });
 ```
 
 ## Design
@@ -36,8 +54,10 @@ any genre.
 | Module | Owns |
 |---|---|
 | `llm/transport` `llm/tiers` `llm/client` `llm/stream` | the structured/streaming LLM client |
-| `worldgen/rng` `worldgen/blueprint` `worldgen/pipeline` | seeded blueprint + layered pipeline runner |
+| `worldgen/rng` `worldgen/blueprint` `worldgen/pipeline` `worldgen/schemas` | seeded blueprint + layered pipeline runner + layer schemas |
 | `dungeon/generate` | the dungeon-graph algorithm (injected stat blocks + content) |
+| `narrative/beats` `narrative/factions` | red-thread beat evaluator + faction-reputation math |
+| `settlement/economy` | trade / quests / inventory / dialogue-memory helpers |
 | `travel/fsm` | the overworld travel state machine |
 
 ## Develop
