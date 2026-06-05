@@ -1,0 +1,51 @@
+{
+  "name": "@zeeuw/bag-of-holding-client",
+  "version": "0.1.0",
+  "description": "The browser host toolkit for AI-driven D&D. A structured/streaming LLM client, a layered blueprint→AI→assemble worldgen pipeline, a procedural dungeon generator, and an overworld travel FSM — the host machinery that the @zeeuw/bag-of-holding rules kernel deliberately leaves out. Zero runtime dependencies, single ESM surface, config-injected (no globals), node-testable.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": {
+      "import": "./index.js"
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "index.js",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dnd",
+    "dungeons-and-dragons",
+    "5e",
+    "ai-dm",
+    "ai-dungeon-master",
+    "llm",
+    "openrouter",
+    "worldgen",
+    "procedural-generation",
+    "dungeon-generator",
+    "esm",
+    "zero-dependency",
+    "browser"
+  ],
+  "author": "Danny de Zeeuw <danny@nekomedia.nl>",
+  "license": "MPL-2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "@zeeuw/bag-of-holding": ">=2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@zeeuw/bag-of-holding": {
+      "optional": true
+    }
+  }
+}
