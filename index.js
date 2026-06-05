@@ -12,6 +12,11 @@
 //   • dungeon/  a procedural dungeon-graph generator (grid placement, spine +
 //               branches, lock-and-key, depth-scaled enemies, vault boss) with
 //               injected content + stat-block providers.
+//   • narrative/ pure runtime engines for the AI-generated story: red-thread
+//               beat evaluator + faction-reputation math (consume what the
+//               worldgen beatsHints/factionsHints constrain the AI to produce).
+//   • settlement/ pure economy / quest / dialogue helpers over the generated
+//               settlements + NPCs.
 //   • travel/   an overworld travel state machine (encounters / discoveries).
 //
 // Everything is config/callback-injected and free of bag-of-holding so it loads
@@ -28,9 +33,31 @@ export { call, chatCompletion, chatStream, repairJson, checkKey } from './src/ll
 export { pick, pickN, shuffle, randInt, mintSeed, mulberry32 } from './src/worldgen/rng.js';
 export { buildBlueprint, blueprintContext, worldSeedConstraints, beatsHints, factionsHints, regionHints, settlementHints } from './src/worldgen/blueprint.js';
 export { runPipeline, ensureDigest, withRetry } from './src/worldgen/pipeline.js';
+export {
+  WORLD_SEED_SCHEMA, REGION_SCHEMA, NPC_SCHEMA, FACTION_SCHEMA,
+  BEAT_SCHEMA, RED_THREAD_SCHEMA, FACTIONS_SCHEMA, SETTLEMENT_SCHEMA,
+} from './src/worldgen/schemas.js';
 
 // ── Dungeon ────────────────────────────────────────────────────────────────────
 export { generateDungeon, DUNGEON_OVERLAYS } from './src/dungeon/generate.js';
+
+// ── Narrative (story beats + faction reputation) ─────────────────────────────────
+export {
+  isBeatDone, isBeatEligible, nextEligibleBeats, currentBeat,
+  setFlag, completeBeat, storyProgress, storyHint,
+} from './src/narrative/beats.js';
+export {
+  REP_MIN, REP_MAX, THRESHOLDS, clampRep, reputationOf, adjustReputation,
+  standing, standingFor, priceModifier, adjustPrice, isHostile,
+} from './src/narrative/factions.js';
+
+// ── Settlement (economy / quests / dialogue) ─────────────────────────────────────
+export {
+  DEFAULT_START_GOLD, DEFAULT_REST_COST, DIALOGUE_MEMORY, SECRET_MIN_EXCHANGES,
+  slug, goldOf, resolvePurchase, addToInventory, resolveRest,
+  questId, makeQuest, addQuest, setQuestStatus, activeQuests,
+  pushDialogue, canRevealSecret,
+} from './src/settlement/economy.js';
 
 // ── Travel ─────────────────────────────────────────────────────────────────────
 export {
