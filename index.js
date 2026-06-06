@@ -66,3 +66,7 @@ export {
   beginTravel, stepTravel, isTravelDone, pickEncounter, runTravel,
   TRAVEL_SEGMENTS_MIN, TRAVEL_SEGMENTS_MAX, ENCOUNTER_CHANCE, DISCOVERY_CHANCE, DISCOVERY_TYPES,
 } from './src/travel/fsm.js';
+
+// ── Output (browser-only: ZIP byte-core is node-testable, EPUB needs a canvas) ───
+export { crc32, zipBytes, buildZip } from './src/output/zip.js';
+export { buildEpub } from './src/output/epub.js';
