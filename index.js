@@ -70,3 +70,6 @@ export {
 // ── Output (browser-only: ZIP byte-core is node-testable, EPUB needs a canvas) ───
 export { crc32, zipBytes, buildZip } from './src/output/zip.js';
 export { buildEpub } from './src/output/epub.js';
+
+// ── Persistence (versioned save envelope + migration runner + commit combinator) ─
+export { wrapEnvelope, loadEnvelope, saveEnvelope, makeCommit } from './src/persistence/envelope.js';
