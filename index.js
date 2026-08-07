@@ -62,6 +62,13 @@ export {
   isBeatDone, isBeatEligible, nextEligibleBeats, currentBeat,
   setFlag, completeBeat, storyProgress, storyHint,
 } from './src/narrative/beats.js';
+// Acts sit above beats: a campaign is 4-5 acts, generated one at a time from
+// what actually happened, with stall detection and a payoff ledger.
+export {
+  makeAct, emptyThread, pushAct, currentAct, activeBeat as activeActBeat,
+  completeBeat as completeActBeat, setFlag as setActFlag, isStalled,
+  plantSetup, paySetup, duePayoffs, threadProgress, directive, isDone as isActBeatDone,
+} from './src/narrative/acts.js';
 export {
   REP_MIN, REP_MAX, THRESHOLDS, clampRep, reputationOf, adjustReputation,
   standing, standingFor, priceModifier, adjustPrice, isHostile,
