@@ -39,6 +39,7 @@ export { makeId, slugSegment, isValidId, parentOf, kindOf, isUnder } from './src
 export {
   makePatch, appendPatch, fold, foldAll, getPath, historyOf,
   dirtyTargets, recentCauses, compact, SCOPES, KINDS,
+  digestScopeOf, causesFor,
 } from './src/ledger/patch.js';
 
 // ── Worldgen ───────────────────────────────────────────────────────────────────

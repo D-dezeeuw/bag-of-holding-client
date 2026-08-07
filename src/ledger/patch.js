@@ -166,3 +166,37 @@ export function compact(bases, ledger, { beforeTurn, keepScopes = ['regional', '
     foldedCount: stale.length,
   };
 }
+
+// ─── Digest re-rendering (E4.S3) ─────────────────────────────────────────────
+//
+// `dirtyTargets` says WHICH digests a batch of patches invalidated. These two
+// say what to do about it: which entity a dirty id renders a digest for, and
+// what changed there that the re-render has to account for.
+//
+// Digests exist at place granularity only. A patch on a curtain in a room in an
+// inn dirties the settlement and the region — but curtains have no digest, so
+// resolving the id has to stop at the place level or the host burns a model
+// call summarising a doorknob.
+
+// Parse a place id into the collection + key a host can look the entity up in.
+// Returns null for ids below place granularity (rooms, npcs, items, details).
+export function digestScopeOf(id) {
+  const parts = String(id ?? '').split('.');
+  if (parts[0] !== 'region' || parts.length < 2 || !parts[1]) return null;
+  if (parts.length === 2) return { kind: 'region', collection: 'regions', key: parts[1] };
+  if (parts.length === 4 && (parts[2] === 'settlement' || parts[2] === 'dungeon') && parts[3]) {
+    return { kind: parts[2], collection: `${parts[2]}s`, key: parts[3] };
+  }
+  return null;
+}
+
+// The one-line causes behind a target's invalidation. Prefix-matched, so a
+// settlement's own events and the events of everything inside it both count —
+// a ghoul in the inn's privy is news about the settlement.
+export function causesFor(ledger, id, { sinceTurn = 0, limit = 12 } = {}) {
+  const prefix = `${id}.`;
+  return ledger
+    .filter(p => p.turn >= sinceTurn && p.because && (p.target === id || p.target.startsWith(prefix)))
+    .map(p => p.because)
+    .slice(-limit);
+}
