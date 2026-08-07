@@ -1,0 +1,23 @@
+# Test gate. Nothing merges on a red suite.
+#
+# Before this workflow no repo in the ecosystem ran a single test in CI, which
+# is how a delisted model id, a version chimera in a vendored copy, and a
+# replay path that throws on real sessions all reached the shipped game.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci || npm install
+      - run: npm test

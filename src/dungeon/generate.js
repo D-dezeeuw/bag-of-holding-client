@@ -197,10 +197,30 @@ export function generateDungeon(seed, opts = {}) {
   }
 
   // 5. lock gate + key
+  //
+  // The gate must be a genuine CUT of the room graph, not one locked door.
+  // Exits are derived for every grid-adjacent pair, so locking only the spine
+  // edge left the vault reachable without the key in ~69% of seeds (measured
+  // over 5000 seeds) — the dungeon's signature puzzle was decorative in two
+  // dungeons out of three.
+  //
+  // Partition by the spine: everything from the gate onward (and any branch
+  // hanging off it) is "beyond the gate"; lock every edge that crosses, both
+  // ways. spineIds is [0..spineLen-1], so a room index IS its spine position.
   const gateSpineIdx = rrandInt(1, spineLen - 2, rng);
-  const gateRoom = rooms[`room-${spineIds[gateSpineIdx]}`];
-  const gateExit = gateRoom.exits.find(e => e.roomId === `room-${spineIds[gateSpineIdx + 1]}`);
-  if (gateExit) { gateExit.locked = true; gateExit.keyId = 'found-key'; }
+  const beyondGate = new Set();
+  for (let i = gateSpineIdx + 1; i < spineLen; i++) beyondGate.add(i);
+  for (const b of branchIds) if (branchParent[b] > gateSpineIdx) beyondGate.add(b);
+
+  for (let i = 0; i < totalRooms; i++) {
+    for (const exit of rooms[`room-${i}`].exits) {
+      const target = Number(exit.roomId.slice('room-'.length));
+      if (beyondGate.has(i) !== beyondGate.has(target)) {
+        exit.locked = true;
+        exit.keyId  = 'found-key';
+      }
+    }
+  }
 
   let keyPlaced = false;
   for (const bIdx of branchIds) {

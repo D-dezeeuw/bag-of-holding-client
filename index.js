@@ -25,16 +25,30 @@
 
 // ── LLM ──────────────────────────────────────────────────────────────────────
 export { ApiError, apiBase, authHeaders, post, DEFAULT_BASE_URL, DEFAULT_APP_TITLE } from './src/llm/transport.js';
-export { resolveModel, sampling, FREE_MODELS, PAID_MODELS, FREE_FALLBACKS } from './src/llm/tiers.js';
+export { resolveModel, sampling, healModels, FREE_MODELS, PAID_MODELS, FREE_FALLBACKS, CHAT_TIERS } from './src/llm/tiers.js';
+export { fetchModelIds } from './src/llm/catalog.js';
 export { JsonFieldStreamer } from './src/llm/stream.js';
 export { call, chatCompletion, chatStream, repairJson, checkKey } from './src/llm/client.js';
 export { generateImage, parseImageFromResponse } from './src/llm/image.js';
 export { synthesizeSpeech, transcribeAudio, pcmToWav, bytesToBase64, TTS_FALLBACKS, PCM_MODELS } from './src/llm/audio.js';
 
+export { makeClock, isFull, advance, tickAll, clockMood, pressingClocks } from './src/narrative/clocks.js';
+
+// ── Ledger (world memory: base ⊕ patches ⊕ views) ─────────────────────────────
+export { makeId, slugSegment, isValidId, parentOf, kindOf, isUnder } from './src/ledger/ids.js';
+export {
+  makePatch, appendPatch, fold, foldAll, getPath, historyOf,
+  dirtyTargets, recentCauses, compact, SCOPES, KINDS,
+} from './src/ledger/patch.js';
+
 // ── Worldgen ───────────────────────────────────────────────────────────────────
 export { pick, pickN, shuffle, randInt, mintSeed, mulberry32 } from './src/worldgen/rng.js';
 export { buildBlueprint, blueprintContext, worldSeedConstraints, beatsHints, factionsHints, regionHints, settlementHints } from './src/worldgen/blueprint.js';
 export { runPipeline, ensureDigest, withRetry } from './src/worldgen/pipeline.js';
+export {
+  emptyGeography, addNode, connect, neighbours, expandFrom, markVisited,
+  knownMap, routeBetween, DIRECTIONS,
+} from './src/worldgen/geography.js';
 export {
   WORLD_SEED_SCHEMA, REGION_SCHEMA, NPC_SCHEMA, FACTION_SCHEMA,
   BEAT_SCHEMA, RED_THREAD_SCHEMA, FACTIONS_SCHEMA, SETTLEMENT_SCHEMA,
@@ -48,6 +62,13 @@ export {
   isBeatDone, isBeatEligible, nextEligibleBeats, currentBeat,
   setFlag, completeBeat, storyProgress, storyHint,
 } from './src/narrative/beats.js';
+// Acts sit above beats: a campaign is 4-5 acts, generated one at a time from
+// what actually happened, with stall detection and a payoff ledger.
+export {
+  makeAct, emptyThread, pushAct, currentAct, activeBeat as activeActBeat,
+  completeBeat as completeActBeat, setFlag as setActFlag, isStalled,
+  plantSetup, paySetup, duePayoffs, threadProgress, directive, isDone as isActBeatDone,
+} from './src/narrative/acts.js';
 export {
   REP_MIN, REP_MAX, THRESHOLDS, clampRep, reputationOf, adjustReputation,
   standing, standingFor, priceModifier, adjustPrice, isHostile,
