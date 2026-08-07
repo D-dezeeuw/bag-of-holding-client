@@ -25,7 +25,8 @@
 
 // ── LLM ──────────────────────────────────────────────────────────────────────
 export { ApiError, apiBase, authHeaders, post, DEFAULT_BASE_URL, DEFAULT_APP_TITLE } from './src/llm/transport.js';
-export { resolveModel, sampling, FREE_MODELS, PAID_MODELS, FREE_FALLBACKS } from './src/llm/tiers.js';
+export { resolveModel, sampling, healModels, FREE_MODELS, PAID_MODELS, FREE_FALLBACKS, CHAT_TIERS } from './src/llm/tiers.js';
+export { fetchModelIds } from './src/llm/catalog.js';
 export { JsonFieldStreamer } from './src/llm/stream.js';
 export { call, chatCompletion, chatStream, repairJson, checkKey } from './src/llm/client.js';
 export { generateImage, parseImageFromResponse } from './src/llm/image.js';
