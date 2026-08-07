@@ -3,14 +3,27 @@
 //
 // Many structured narrators stream a JSON object like {"narration":"..."}; the
 // UI wants only the live text of one field. This watches the delta stream for
-// `"<field>":"` and decodes the value until the unescaped closing quote, carrying
-// a partial tail across chunk boundaries. Generalized from a game-specific
-// extractor; the field name is a constructor argument and \u/\r escapes are
-// handled correctly.
+// `"<field>" : "` and decodes the value until the unescaped closing quote,
+// carrying a partial tail across chunk boundaries. Generalized from a
+// game-specific extractor; the field name is a constructor argument and \u/\r
+// escapes are handled correctly.
+
+// Whitespace a pretty-printer may insert inside the marker (`"f" : "`). Matching
+// on the compact form alone meant any provider that formats its JSON produced a
+// silent, empty stream — the turn still worked, but nothing appeared until the
+// non-streamed parse landed at the end.
+const WS_SLACK = 32;
+
+function escapeRe(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 export class JsonFieldStreamer {
   constructor(field = 'narration') {
-    this._marker = `"${field}":"`;
+    this._marker = new RegExp(`"${escapeRe(field)}"\\s*:\\s*"`);
+    // Tail carried across a chunk boundary: the marker's shortest form
+    // (`"field":"`) plus room for the whitespace a formatter can insert.
+    this._keep   = String(field).length + 3 + WS_SLACK;
     this._buf    = '';
     this._active = false;  // entered the field value
     this._done   = false;  // closing quote seen
@@ -21,16 +34,14 @@ export class JsonFieldStreamer {
     this._buf += raw;
 
     if (!this._active) {
-      const idx = this._buf.indexOf(this._marker);
-      if (idx === -1) {
+      const m = this._marker.exec(this._buf);
+      if (!m) {
         // Keep enough tail to detect a marker spanning two chunks.
-        if (this._buf.length > this._marker.length) {
-          this._buf = this._buf.slice(-(this._marker.length - 1));
-        }
+        if (this._buf.length > this._keep) this._buf = this._buf.slice(-this._keep);
         return '';
       }
       this._active = true;
-      this._buf = this._buf.slice(idx + this._marker.length);
+      this._buf = this._buf.slice(m.index + m[0].length);
     }
 
     let out = '';

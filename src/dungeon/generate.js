@@ -120,6 +120,9 @@ function buildEnemyNpc(npcId, roomId, creatureId, style, c, statBlockFor, extra 
   };
 }
 
+// Default dungeon scale — the shape every dungeon had before `opts.size` existed.
+export const DEFAULT_SIZE = { spineMin: 4, spineMax: 6, branchMin: 2, branchMax: 4 };
+
 export function generateDungeon(seed, opts = {}) {
   const {
     blueprint = null,
@@ -129,6 +132,7 @@ export function generateDungeon(seed, opts = {}) {
     overlays = DUNGEON_OVERLAYS,
     defaultEnemyIds = [],
     content = {},
+    size = {},
   } = opts;
 
   if (typeof statBlockFor !== 'function') throw new Error('generateDungeon requires a statBlockFor(id) provider');
@@ -142,11 +146,22 @@ export function generateDungeon(seed, opts = {}) {
   const primaryDomain = blueprint?.godDomains?.[0]?.domain ?? null;
 
   // 1. spine + 2. branches
-  const spineLen = rrandInt(4, 6, rng);
+  //
+  // Sizes come from `opts.size` so a host can scale a dungeon to the act it sits
+  // in — a prologue crypt and a late-campaign fortress used to be the same four
+  // to six rooms. The spine floor is 3: the lock gate is placed strictly between
+  // the entrance and the vault, so a shorter spine has nowhere to put it.
+  const sz        = { ...DEFAULT_SIZE, ...size };
+  const spineMin  = Math.max(3, Math.trunc(sz.spineMin));
+  const spineMax  = Math.max(spineMin, Math.trunc(sz.spineMax));
+  const branchMin = Math.max(0, Math.trunc(sz.branchMin));
+  const branchMax = Math.max(branchMin, Math.trunc(sz.branchMax));
+
+  const spineLen = rrandInt(spineMin, spineMax, rng);
   const { grid, positions } = placeOnGrid(spineLen, rng);
   const spineIds = Array.from({ length: spineLen }, (_, i) => i);
 
-  const branchCount = rrandInt(2, 4, rng);
+  const branchCount = rrandInt(branchMin, branchMax, rng);
   const branchIds = [];
   const branchParent = {};
   const candidates = spineIds.slice(1, -1);

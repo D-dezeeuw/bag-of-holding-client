@@ -18,6 +18,47 @@ export class ApiError extends Error {
   }
 }
 
+// A request that never returns is worse than one that fails: with no timeout
+// anywhere in the LLM stack, a hung fetch froze the player's turn forever with
+// no way out. Every call now runs under a deadline, and a caller can pass its
+// own signal to cancel (a Stop button, a navigation away).
+export const DEFAULT_TIMEOUT_MS = 60_000;
+
+// Thrown when a call is cancelled or times out. Distinct from ApiError so retry
+// logic never treats a deliberate cancellation as a provider fault.
+export class AbortedError extends Error {
+  constructor(reason = 'aborted') {
+    super(`AI request ${reason}`);
+    this.name = 'AbortedError';
+    this.reason = reason;
+  }
+}
+
+// Combine a caller's signal with a timeout into one signal, and hand back a
+// disposer so the timer never outlives the request.
+export function withDeadline(signal, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  if (typeof AbortController !== 'function') return { signal, done: () => {} };
+  const ctl = new AbortController();
+  const onAbort = () => ctl.abort('cancelled');
+  const timer = setTimeout(() => ctl.abort('timeout'), timeoutMs);
+  if (signal) {
+    if (signal.aborted) ctl.abort('cancelled');
+    else signal.addEventListener('abort', onAbort, { once: true });
+  }
+  return {
+    signal: ctl.signal,
+    done: () => { clearTimeout(timer); signal?.removeEventListener?.('abort', onAbort); },
+  };
+}
+
+// Normalise a fetch rejection: an aborted request becomes AbortedError so the
+// caller can tell "the player stopped this" from "the provider broke".
+export function asTransportError(err, signal) {
+  const aborted = err?.name === 'AbortError' || signal?.aborted;
+  if (aborted) return new AbortedError(signal?.reason === 'timeout' ? 'timed out' : 'cancelled');
+  return err;
+}
+
 // Base URL with any trailing slash stripped — the one place the default lives.
 export function apiBase(config) {
   return (config?.baseUrl || DEFAULT_BASE_URL).replace(/\/$/, '');

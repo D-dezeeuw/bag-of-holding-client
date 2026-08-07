@@ -1,17 +1,20 @@
 // worldgen/schemas.js — JSON Schema contracts for the AI-generated worldgen
 // layers (world seed, region, factions, story beats, settlement + NPCs).
 //
-// Zero imports: plain JSON-Schema object literals. The host passes these as the
+// One import (the shared tone vocabulary); otherwise plain JSON-Schema object
+// literals. The host passes these as the
 // `schema` for each structured completion in the worldgen pipeline (runPipeline)
 // so the model's output is validated/repaired against the layer's shape. The
 // NPC and settlement contracts are also the data shape the host's settlement
 // economy/dialogue helpers consume at play time.
 
+import { TONES } from './tones.js';
+
 export const WORLD_SEED_SCHEMA = {
   type: 'object',
   properties: {
     name:     { type: 'string' },
-    tone:     { type: 'string', enum: ['grimdark', 'heroic', 'mysterious'] },
+    tone:     { type: 'string', enum: [...TONES] },
     creation: { type: 'string' },
     gods: {
       type: 'array',

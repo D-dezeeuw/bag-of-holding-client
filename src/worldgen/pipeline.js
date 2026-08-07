@@ -56,13 +56,48 @@ function groupLayers(layers) {
   return groups;
 }
 
-export async function runPipeline(layers, { blueprint = null, ctx = {}, onProgress = () => {}, defaultRetries = 0 } = {}) {
+// Thrown when a critical layer fails. Carries everything the pipeline HAD
+// produced, so the host can persist it and hand it straight back as
+// `initialResults` instead of paying for the completed layers a second time.
+export class PipelineError extends Error {
+  constructor(message, results) {
+    super(message);
+    this.name = 'PipelineError';
+    this.results = results;
+  }
+}
+
+// runPipeline(layers, opts) -> { [name]: result|null }
+//
+// `initialResults` resumes a run: any layer whose name is an own key is taken as
+// already decided (a value adopts it, `null` records a layer that failed and is
+// not worth retrying) and never regenerated. `onCheckpoint(results)` fires after
+// every group, which is the moment worth persisting — worldgen is the single
+// most expensive thing the game does, and losing four completed layers to one
+// timeout on the fifth was the whole reason a first run could cost more than a
+// session's play.
+export async function runPipeline(layers, {
+  blueprint = null, ctx = {}, onProgress = () => {}, defaultRetries = 0,
+  initialResults = null, onCheckpoint = null,
+} = {}) {
   const results = {};
   const digests = {};
+  const resumed = (name) => initialResults != null && Object.hasOwn(initialResults, name);
+
+  const adopt = (layer, result) => {
+    results[layer.name] = result;
+    if (result != null) {
+      digests[layer.name] = layer.digestOf ? ensureDigest(result, layer.digestOf(result)) : (result.digest ?? null);
+    }
+  };
 
   for (const group of groupLayers(layers)) {
     // Run all layers in this group concurrently; never reject (capture per-layer).
     const settled = await Promise.all(group.layers.map(async (layer) => {
+      if (resumed(layer.name)) {
+        onProgress('resume', { layer: layer.name });
+        return { layer, result: initialResults[layer.name], error: null, fromCheckpoint: true };
+      }
       onProgress('step', { layer: layer.name });
       const parentDigests = Object.fromEntries((layer.dependsOn ?? []).map(n => [n, digests[n]]));
       try {
@@ -76,19 +111,25 @@ export async function runPipeline(layers, { blueprint = null, ctx = {}, onProgre
       }
     }));
 
-    for (const { layer, result, error } of settled) {
+    for (const { layer, result, error, fromCheckpoint } of settled) {
       if (result == null) {
-        if (layer.critical) {
-          throw new Error(`Critical worldgen layer '${layer.name}' failed: ${error?.message ?? 'no result'}`);
+        // A checkpoint that recorded `null` is a decision, not a fresh failure:
+        // re-throwing on it would make a resumed run unresumable.
+        if (layer.critical && !fromCheckpoint) {
+          throw new PipelineError(
+            `Critical worldgen layer '${layer.name}' failed: ${error?.message ?? 'no result'}`,
+            { ...results },
+          );
         }
         results[layer.name] = null;
-        onProgress('skip', { layer: layer.name, reason: error?.message ?? 'empty' });
+        if (!fromCheckpoint) onProgress('skip', { layer: layer.name, reason: error?.message ?? 'empty' });
         continue;
       }
-      results[layer.name] = result;
-      digests[layer.name] = layer.digestOf ? ensureDigest(result, layer.digestOf(result)) : (result.digest ?? null);
-      onProgress('detail', { layer: layer.name, result });
+      adopt(layer, result);
+      if (!fromCheckpoint) onProgress('detail', { layer: layer.name, result });
     }
+
+    onCheckpoint?.({ ...results });
   }
 
   return results;
