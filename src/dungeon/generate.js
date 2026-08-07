@@ -120,6 +120,9 @@ function buildEnemyNpc(npcId, roomId, creatureId, style, c, statBlockFor, extra 
   };
 }
 
+// Default dungeon scale — the shape every dungeon had before `opts.size` existed.
+export const DEFAULT_SIZE = { spineMin: 4, spineMax: 6, branchMin: 2, branchMax: 4 };
+
 export function generateDungeon(seed, opts = {}) {
   const {
     blueprint = null,
@@ -129,6 +132,7 @@ export function generateDungeon(seed, opts = {}) {
     overlays = DUNGEON_OVERLAYS,
     defaultEnemyIds = [],
     content = {},
+    size = {},
   } = opts;
 
   if (typeof statBlockFor !== 'function') throw new Error('generateDungeon requires a statBlockFor(id) provider');
@@ -142,11 +146,22 @@ export function generateDungeon(seed, opts = {}) {
   const primaryDomain = blueprint?.godDomains?.[0]?.domain ?? null;
 
   // 1. spine + 2. branches
-  const spineLen = rrandInt(4, 6, rng);
+  //
+  // Sizes come from `opts.size` so a host can scale a dungeon to the act it sits
+  // in — a prologue crypt and a late-campaign fortress used to be the same four
+  // to six rooms. The spine floor is 3: the lock gate is placed strictly between
+  // the entrance and the vault, so a shorter spine has nowhere to put it.
+  const sz        = { ...DEFAULT_SIZE, ...size };
+  const spineMin  = Math.max(3, Math.trunc(sz.spineMin));
+  const spineMax  = Math.max(spineMin, Math.trunc(sz.spineMax));
+  const branchMin = Math.max(0, Math.trunc(sz.branchMin));
+  const branchMax = Math.max(branchMin, Math.trunc(sz.branchMax));
+
+  const spineLen = rrandInt(spineMin, spineMax, rng);
   const { grid, positions } = placeOnGrid(spineLen, rng);
   const spineIds = Array.from({ length: spineLen }, (_, i) => i);
 
-  const branchCount = rrandInt(2, 4, rng);
+  const branchCount = rrandInt(branchMin, branchMax, rng);
   const branchIds = [];
   const branchParent = {};
   const candidates = spineIds.slice(1, -1);
@@ -194,7 +209,21 @@ export function generateDungeon(seed, opts = {}) {
     const descParams = { style };
     if (type === 'vault') descParams.treasure = treasure.name;
     const baseDesc = interp(def.desc, descParams);
-    const themedDesc = (atmosphere && type !== 'entrance' && type !== 'vault') ? `${baseDesc} ${atmosphere}` : baseDesc;
+    // Theme atmosphere is ONE sentence per theme, so every middle room in a
+    // dungeon used to end with the same line. `content.dressingFor` hands back a
+    // pool of small concrete details for this theme and room type; one is drawn
+    // per room from the same seeded stream, so a crypt's chambers differ from
+    // each other and the dungeon still regenerates identically from its seed.
+    // This is where the moulded curtain and the cracked bell come from — and
+    // because it lands in the room's description, the host's canon extractor
+    // can persist it as something the world remembers.
+    const dressPool = c.dressingFor ? c.dressingFor(blueprint?.dungeonTheme ?? null, type) : null;
+    const dressing  = Array.isArray(dressPool) && dressPool.length ? rpick(dressPool, rng) : '';
+    const themedDesc = [
+      baseDesc,
+      (atmosphere && type !== 'entrance' && type !== 'vault') ? atmosphere : '',
+      dressing,
+    ].filter(Boolean).join(' ');
     rooms[id] = {
       id, name: def.name, description: themedDesc,
       exits: adjacency[i].map(a => ({ dir: a.dir, roomId: `room-${a.target}`, locked: false })),

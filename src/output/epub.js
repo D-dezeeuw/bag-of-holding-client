@@ -30,10 +30,15 @@ function _dataUriToBytes(uri) {
 
 // ─── Cover image (canvas-rendered) ───────────────────────────────────────────
 
-const TONE_PALETTE = {
+// One entry per tone in worldgen/tones.js. A missing tone is not a crash, just
+// a cover that silently ignores the campaign it belongs to — `tones.test.js`
+// asserts this table stays complete.
+export const TONE_PALETTE = {
   grimdark:   { bg: '#1a0a0a', border: '#6b2020', accent: '#a03030', text: '#d4a878', brand: '#8c5a3a' },
   heroic:     { bg: '#0a1a3a', border: '#2a4a7a', accent: '#c8a020', text: '#e0d8c0', brand: '#8ca0c0' },
   mysterious: { bg: '#1a0a2a', border: '#4a2a6a', accent: '#8a6ab0', text: '#d0c8e0', brand: '#9080a8' },
+  tragic:     { bg: '#141018', border: '#3a3050', accent: '#7a6a90', text: '#c8bcd0', brand: '#6a5e7a' },
+  whimsical:  { bg: '#123028', border: '#2a6a50', accent: '#e0b040', text: '#f0e4c0', brand: '#7aa88c' },
 };
 const DEFAULT_PALETTE = { bg: '#f5e6c8', border: '#8c6a3a', accent: '#c8a878', text: '#3a2a1a', brand: '#8c6a3a' };
 

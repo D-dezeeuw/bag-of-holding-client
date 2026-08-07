@@ -6,7 +6,7 @@
 //   400 (content filter / unsupported feature) → retry once at the medium tier
 //   429 (rate limited)                          → walk the tier's fallback model chain
 
-import { apiBase, authHeaders, ApiError } from './transport.js';
+import { apiBase, authHeaders, ApiError, withDeadline, asTransportError, DEFAULT_TIMEOUT_MS } from './transport.js';
 import { resolveModel, sampling, FREE_MODELS, FREE_FALLBACKS } from './tiers.js';
 import { JsonFieldStreamer } from './stream.js';
 
@@ -31,7 +31,7 @@ function fallbackChain(config, tier) {
   return (config?.fallbacks ?? FREE_FALLBACKS)[tier] ?? [];
 }
 
-async function callOnce(config, { tier = 'medium', messages, schema, maxTokens, temperature, model: override }) {
+async function callOnce(config, { tier = 'medium', messages, schema, maxTokens, temperature, model: override, signal, timeoutMs }) {
   const model = override ?? resolveModel(tier, config, config.defaultModels);
   if (!model) throw new Error(`No model configured for tier '${tier}'.`);
   const s = sampling(tier);
@@ -46,11 +46,20 @@ async function callOnce(config, { tier = 'medium', messages, schema, maxTokens, 
     body.response_format = { type: 'json_schema', json_schema: { name: 'output', strict: true, schema } };
   }
 
-  const res = await fetch(`${apiBase(config)}/chat/completions`, {
-    method:  'POST',
-    headers: authHeaders(config),
-    body:    JSON.stringify(body),
-  });
+  const deadline = withDeadline(signal ?? config.signal, timeoutMs ?? config.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(`${apiBase(config)}/chat/completions`, {
+      method:  'POST',
+      headers: authHeaders(config),
+      body:    JSON.stringify(body),
+      signal:  deadline.signal,
+    });
+  } catch (err) {
+    throw asTransportError(err, deadline.signal);
+  } finally {
+    deadline.done();
+  }
   if (!res.ok) {
     const txt = await res.text().catch(() => '');
     throw new ApiError(res.status, txt.slice(0, 200));
@@ -104,21 +113,31 @@ export async function chatCompletion(config, opts) {
 // Streaming completion. Feeds deltas to a JsonFieldStreamer(field) so onChunk
 // receives only the live text of that one JSON field; returns the full raw
 // content for a post-stream JSON.parse/repair. `field: null` streams raw deltas.
-export async function chatStream(config, { tier = 'medium', messages, maxTokens, temperature }, onChunk, { field = 'narration' } = {}) {
+export async function chatStream(config, { tier = 'medium', messages, maxTokens, temperature, schema, signal, timeoutMs }, onChunk, { field = 'narration' } = {}) {
   const s = sampling(tier);
 
+  const deadline = withDeadline(signal ?? config.signal, timeoutMs ?? config.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   const open = async (model) => {
-    const res = await fetch(`${apiBase(config)}/chat/completions`, {
-      method:  'POST',
-      headers: authHeaders(config),
-      body:    JSON.stringify({
-        model,
-        messages,
-        temperature: temperature ?? s.temperature,
-        max_tokens:  maxTokens ?? s.maxTokens,
-        stream:      true,
-      }),
-    });
+    let res;
+    try {
+      res = await fetch(`${apiBase(config)}/chat/completions`, {
+        method:  'POST',
+        headers: authHeaders(config),
+        body:    JSON.stringify({
+          model,
+          messages,
+          temperature: temperature ?? s.temperature,
+          max_tokens:  maxTokens ?? s.maxTokens,
+          stream:      true,
+          // Schema-bind the stream too: a narrator that answers in prose or in
+          // a markdown fence used to cost a second, paid repair call.
+          ...(schema ? { response_format: { type: 'json_schema', json_schema: { name: 'output', strict: true, schema } } } : {}),
+        }),
+        signal: deadline.signal,
+      });
+    } catch (err) {
+      throw asTransportError(err, deadline.signal);
+    }
     if (!res.ok) {
       const txt = await res.text().catch(() => '');
       throw new ApiError(res.status, txt.slice(0, 200));
@@ -173,6 +192,7 @@ export async function chatStream(config, { tier = 'medium', messages, maxTokens,
       } catch { /* malformed SSE line — skip */ }
     }
   }
+  deadline.done();
   return full;
 }
 

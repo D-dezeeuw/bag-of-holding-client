@@ -24,7 +24,10 @@
 // locale content.
 
 // ── LLM ──────────────────────────────────────────────────────────────────────
-export { ApiError, apiBase, authHeaders, post, DEFAULT_BASE_URL, DEFAULT_APP_TITLE } from './src/llm/transport.js';
+export {
+  ApiError, AbortedError, apiBase, authHeaders, post, withDeadline, asTransportError,
+  DEFAULT_BASE_URL, DEFAULT_APP_TITLE, DEFAULT_TIMEOUT_MS,
+} from './src/llm/transport.js';
 export { resolveModel, sampling, healModels, FREE_MODELS, PAID_MODELS, FREE_FALLBACKS, CHAT_TIERS } from './src/llm/tiers.js';
 export { fetchModelIds } from './src/llm/catalog.js';
 export { JsonFieldStreamer } from './src/llm/stream.js';
@@ -44,8 +47,9 @@ export {
 
 // ── Worldgen ───────────────────────────────────────────────────────────────────
 export { pick, pickN, shuffle, randInt, mintSeed, mulberry32 } from './src/worldgen/rng.js';
+export { TONES, isTone } from './src/worldgen/tones.js';
 export { buildBlueprint, blueprintContext, worldSeedConstraints, beatsHints, factionsHints, regionHints, settlementHints } from './src/worldgen/blueprint.js';
-export { runPipeline, ensureDigest, withRetry } from './src/worldgen/pipeline.js';
+export { runPipeline, ensureDigest, withRetry, PipelineError } from './src/worldgen/pipeline.js';
 export {
   emptyGeography, addNode, connect, neighbours, expandFrom, markVisited,
   knownMap, routeBetween, DIRECTIONS,
@@ -56,7 +60,7 @@ export {
 } from './src/worldgen/schemas.js';
 
 // ── Dungeon ────────────────────────────────────────────────────────────────────
-export { generateDungeon, DUNGEON_OVERLAYS } from './src/dungeon/generate.js';
+export { generateDungeon, DUNGEON_OVERLAYS, DEFAULT_SIZE as DEFAULT_DUNGEON_SIZE } from './src/dungeon/generate.js';
 
 // ── Narrative (story beats + faction reputation) ─────────────────────────────────
 export {
@@ -91,10 +95,13 @@ export {
 
 // ── Output (browser-only: ZIP byte-core is node-testable, EPUB needs a canvas) ───
 export { crc32, zipBytes, buildZip } from './src/output/zip.js';
-export { buildEpub } from './src/output/epub.js';
+export { buildEpub, TONE_PALETTE } from './src/output/epub.js';
 
 // ── Persistence (versioned save envelope + migration runner + commit combinator) ─
-export { wrapEnvelope, loadEnvelope, saveEnvelope, makeCommit } from './src/persistence/envelope.js';
+export {
+  wrapEnvelope, loadEnvelope, saveEnvelope, makeCommit,
+  listBackups, restoreBackup, backupKey, digest, LOAD_ERRORS,
+} from './src/persistence/envelope.js';
 // Two-tier persistence: a small synchronous hot slice in localStorage, an
 // unbounded async cold archive in IndexedDB. Degrades to hot-only when the
 // platform has no IndexedDB, so the game keeps working.

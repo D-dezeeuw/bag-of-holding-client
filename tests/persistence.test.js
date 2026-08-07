@@ -38,7 +38,9 @@ describe('wrap / save / load round-trip', () => {
 describe('loadEnvelope — legacy + migration', () => {
   it('treats a bare (un-enveloped) snapshot as version 0', () => {
     const legacy = JSON.stringify({ hp: 5 }); // no { v, data } wrapper
-    assert.deepEqual(loadEnvelope(legacy, { currentVersion: 1 }), { hp: 5 });
+    // v0→v1 must be declared, even when it is a no-op: an undeclared step is
+    // now a refusal rather than a silent skip.
+    assert.deepEqual(loadEnvelope(legacy, { migrations: { 0: d => d }, currentVersion: 1 }), { hp: 5 });
   });
 
   it('runs ordered v→v+1 migrations from a legacy save up to current', () => {
@@ -58,6 +60,7 @@ describe('loadEnvelope — legacy + migration', () => {
 
   it('applies onReconcile after migration', () => {
     const out = loadEnvelope(JSON.stringify({ hp: 5 }), {
+      migrations: { 0: d => d },
       currentVersion: 1,
       onReconcile: (d) => ({ ...d, derived: d.hp * 2 }),
     });

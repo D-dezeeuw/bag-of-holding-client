@@ -119,8 +119,15 @@ const world = await runPipeline([
       tier: 'medium', schema: SETTLEMENT_SCHEMA,
       messages: [{ role: 'system', content: `World so far: ${digests.world}` }],
     }) },
-], { blueprint, onProgress: (kind, info) => log(kind, info) });
+], {
+  blueprint,
+  onProgress:   (kind, info) => log(kind, info),
+  onCheckpoint: (partial) => localStorage.setItem('worldgen', JSON.stringify(partial)),
+  initialResults: JSON.parse(localStorage.getItem('worldgen') ?? 'null'),   // resume a half-built world
+});
 // → { world: {…}, town: {…} }   digests threaded down; same-`group` layers run in parallel
+// A critical layer that fails throws a PipelineError carrying `.results` — persist it and
+// pass it back as `initialResults` so the completed layers are never paid for twice.
 ```
 
 ### 3 · Generate a dungeon
@@ -131,8 +138,10 @@ import { generateDungeon } from '@zeeuw/bag-of-holding-client';
 const dungeon = generateDungeon(1234, {
   blueprint,                                // optional: themes the rooms + loot
   statBlockFor: (id) => bestiary[id],       // REQUIRED — your engine's stat blocks
+  size: { spineMin: 6, spineMax: 9, branchMin: 3, branchMax: 5 },   // optional: scale to the act
   content: {                                // injected locale dressing (the library ships none)
     roomPools, houseStyles, treasures, keys, loot,
+    dressingFor: (theme, roomType) => details[theme]?.[roomType],   // one small detail per room
     enemyName:  (id) => names[id],
     enemyIntro: (id, name, style) => `${name} lurks in the ${style}.`,
   },
@@ -160,7 +169,9 @@ import { currentBeat, completeBeat,
 
 let thread = { beats, currentIndex: 0, flags: {} };
 const beat = currentBeat(thread);           // the beat to steer toward right now
-thread = completeBeat(thread, beat.id);     // raises its flags, unlocks successors (immutable)
+thread = completeBeat(thread, beat.id);     // raises its flags, advances the index (immutable)
+// Gating is `prerequisites` only. A beat's `successors` is advisory: it breaks the tie when
+// several beats are eligible at once, so the story follows the arc the author intended.
 
 let rep = adjustReputation({}, 'crown', 30);
 standingFor(rep, 'crown');                   // 'neutral' | 'ally' | 'enemy' | 'champion' | 'nemesis'
@@ -193,9 +204,11 @@ any genre.
 | Module | Owns |
 |---|---|
 | `llm/transport` `llm/tiers` `llm/client` `llm/stream` | the structured/streaming LLM client |
-| `worldgen/rng` `worldgen/blueprint` `worldgen/pipeline` `worldgen/schemas` | seeded blueprint + layered pipeline runner + layer schemas |
+| `worldgen/rng` `worldgen/blueprint` `worldgen/pipeline` `worldgen/schemas` `worldgen/tones` `worldgen/geography` | seeded blueprint + resumable pipeline runner + layer schemas + the shared tone vocabulary + the region graph |
 | `dungeon/generate` | the dungeon-graph algorithm (injected stat blocks + content) |
-| `narrative/beats` `narrative/factions` | red-thread beat evaluator + faction-reputation math |
+| `narrative/beats` `narrative/acts` `narrative/clocks` `narrative/factions` | beat evaluator, act arc, faction/threat clocks, reputation math |
+| `ledger/patch` `ledger/ids` | world memory: base ⊕ append-only patches ⊕ folded views |
+| `persistence/envelope` `persistence/idb` | versioned saves (strict migrations, backup rotation) + a hot/cold split |
 | `settlement/economy` | trade / quests / inventory / dialogue-memory helpers |
 | `travel/fsm` | the overworld travel state machine |
 

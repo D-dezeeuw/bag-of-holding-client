@@ -32,12 +32,25 @@ export function nextEligibleBeats(rt) {
   return (rt?.beats ?? []).filter(b => !flags[doneFlag(b.id)] && isBeatEligible(b, flags));
 }
 
-// The beat to steer the story toward right now: the first eligible incomplete
-// beat, else the first incomplete beat (so the thread never silently stalls),
-// else null when the arc is finished.
+// `successors` names the beats the arc's author meant to follow this one. It is
+// ADVISORY: when several beats are eligible at once it breaks the tie toward the
+// intended chain, and that is all it does. Making it a gate was tempting and
+// wrong — an AI-authored arc with one bad edge would strand a campaign with no
+// reachable beat, and `prerequisites` already does the gating.
+function preferredNext(rt, eligible) {
+  const beats = rt?.beats ?? [];
+  const last  = beats[(rt?.currentIndex ?? 0) - 1];
+  const named = new Set(last?.successors ?? []);
+  return eligible.find(b => named.has(b.id)) ?? eligible[0];
+}
+
+// The beat to steer the story toward right now: the eligible incomplete beat the
+// last completed beat pointed at (else the first eligible one), else the first
+// incomplete beat (so the thread never silently stalls), else null when the arc
+// is finished.
 export function currentBeat(rt) {
   const elig = nextEligibleBeats(rt);
-  if (elig.length) return elig[0];
+  if (elig.length) return preferredNext(rt, elig);
   const flags = flagsOf(rt);
   return (rt?.beats ?? []).find(b => !flags[doneFlag(b.id)]) ?? null;
 }
