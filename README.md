@@ -141,6 +141,7 @@ const dungeon = generateDungeon(1234, {
   size: { spineMin: 6, spineMax: 9, branchMin: 3, branchMax: 5 },   // optional: scale to the act
   content: {                                // injected locale dressing (the library ships none)
     roomPools, houseStyles, treasures, keys, loot,
+    dressingFor: (theme, roomType) => details[theme]?.[roomType],   // one small detail per room
     enemyName:  (id) => names[id],
     enemyIntro: (id, name, style) => `${name} lurks in the ${style}.`,
   },

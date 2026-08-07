@@ -209,7 +209,21 @@ export function generateDungeon(seed, opts = {}) {
     const descParams = { style };
     if (type === 'vault') descParams.treasure = treasure.name;
     const baseDesc = interp(def.desc, descParams);
-    const themedDesc = (atmosphere && type !== 'entrance' && type !== 'vault') ? `${baseDesc} ${atmosphere}` : baseDesc;
+    // Theme atmosphere is ONE sentence per theme, so every middle room in a
+    // dungeon used to end with the same line. `content.dressingFor` hands back a
+    // pool of small concrete details for this theme and room type; one is drawn
+    // per room from the same seeded stream, so a crypt's chambers differ from
+    // each other and the dungeon still regenerates identically from its seed.
+    // This is where the moulded curtain and the cracked bell come from — and
+    // because it lands in the room's description, the host's canon extractor
+    // can persist it as something the world remembers.
+    const dressPool = c.dressingFor ? c.dressingFor(blueprint?.dungeonTheme ?? null, type) : null;
+    const dressing  = Array.isArray(dressPool) && dressPool.length ? rpick(dressPool, rng) : '';
+    const themedDesc = [
+      baseDesc,
+      (atmosphere && type !== 'entrance' && type !== 'vault') ? atmosphere : '',
+      dressing,
+    ].filter(Boolean).join(' ');
     rooms[id] = {
       id, name: def.name, description: themedDesc,
       exits: adjacency[i].map(a => ({ dir: a.dir, roomId: `room-${a.target}`, locked: false })),
