@@ -375,3 +375,61 @@ describe('dungeon scale is configurable', () => {
     }
   });
 });
+
+describe('per-room dressing', () => {
+  const statBlockFor = () => ({ name: 'goblin', cr: 0.25, hp: 7, ac: 15, attacks: [] });
+  const POOL = ['A curtain hangs mouldering.', 'A cracked bell lies on its side.',
+                'Wax has run down the wall in frozen rivers.', 'Someone scratched a tally into the stone.'];
+
+  const build = (seed, opts = {}) => generateDungeon(seed, {
+    rng: mulberry32(seed), statBlockFor,
+    content: { dressingFor: () => POOL },
+    ...opts,
+  });
+
+  it('gives rooms in one dungeon different details', () => {
+    const rooms = Object.values(build(7).rooms);
+    const used = new Set(rooms.map(r => POOL.find(d => r.description.includes(d)) ?? null).filter(Boolean));
+    assert.ok(used.size > 1, `every room drew the same detail (${[...used]})`);
+  });
+
+  it('is deterministic for a seed', () => {
+    const a = Object.values(build(11).rooms).map(r => r.description);
+    const b = Object.values(build(11).rooms).map(r => r.description);
+    assert.deepEqual(a, b);
+  });
+
+  it('changes with the seed', () => {
+    const a = Object.values(build(11).rooms).map(r => r.description).join('|');
+    const b = Object.values(build(12).rooms).map(r => r.description).join('|');
+    assert.notEqual(a, b);
+  });
+
+  it('is optional — a host that injects none gets what it always got', () => {
+    const bare = generateDungeon(3, { rng: mulberry32(3), statBlockFor });
+    for (const room of Object.values(bare.rooms)) {
+      assert.ok(room.description.length > 0);
+      assert.ok(!POOL.some(d => room.description.includes(d)));
+    }
+  });
+
+  it('passes the theme and room type to the host', () => {
+    const seen = [];
+    generateDungeon(5, {
+      rng: mulberry32(5), statBlockFor,
+      blueprint: { dungeonTheme: 'ancient crypt' },
+      content: { dressingFor: (theme, type) => { seen.push([theme, type]); return POOL; } },
+    });
+    assert.ok(seen.length > 0);
+    assert.ok(seen.every(([theme]) => theme === 'ancient crypt'));
+    assert.ok(seen.some(([, type]) => type === 'entrance'));
+  });
+
+  it('tolerates a host that returns nothing for a type', () => {
+    const d = generateDungeon(9, {
+      rng: mulberry32(9), statBlockFor,
+      content: { dressingFor: (_t, type) => (type === 'vault' ? null : POOL) },
+    });
+    for (const room of Object.values(d.rooms)) assert.ok(room.description.trim().length > 0);
+  });
+});
