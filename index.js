@@ -32,6 +32,8 @@ export { call, chatCompletion, chatStream, repairJson, checkKey } from './src/ll
 export { generateImage, parseImageFromResponse } from './src/llm/image.js';
 export { synthesizeSpeech, transcribeAudio, pcmToWav, bytesToBase64, TTS_FALLBACKS, PCM_MODELS } from './src/llm/audio.js';
 
+export { makeClock, isFull, advance, tickAll, clockMood, pressingClocks } from './src/narrative/clocks.js';
+
 // ── Ledger (world memory: base ⊕ patches ⊕ views) ─────────────────────────────
 export { makeId, slugSegment, isValidId, parentOf, kindOf, isUnder } from './src/ledger/ids.js';
 export {
@@ -43,6 +45,10 @@ export {
 export { pick, pickN, shuffle, randInt, mintSeed, mulberry32 } from './src/worldgen/rng.js';
 export { buildBlueprint, blueprintContext, worldSeedConstraints, beatsHints, factionsHints, regionHints, settlementHints } from './src/worldgen/blueprint.js';
 export { runPipeline, ensureDigest, withRetry } from './src/worldgen/pipeline.js';
+export {
+  emptyGeography, addNode, connect, neighbours, expandFrom, markVisited,
+  knownMap, routeBetween, DIRECTIONS,
+} from './src/worldgen/geography.js';
 export {
   WORLD_SEED_SCHEMA, REGION_SCHEMA, NPC_SCHEMA, FACTION_SCHEMA,
   BEAT_SCHEMA, RED_THREAD_SCHEMA, FACTIONS_SCHEMA, SETTLEMENT_SCHEMA,
