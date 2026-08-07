@@ -13,7 +13,7 @@
 //   generateDungeon(seed, {
 //     blueprint,                       // { dungeonTheme, godDomains } — optional
 //     rng,                             // () => [0,1); defaults to mulberry32(seed)
-//     statBlockFor(id) -> stat block,  // REQUIRED — from the host's bestiary/engine
+//     statBlockFor(id, { isBoss }) -> stat block,  // REQUIRED — host's bestiary
 //     crOf(id) -> number,              // optional; defaults to statBlockFor(id).cr
 //     overlays,                        // theme → { atmosphere, enemies:[id] }; default DUNGEON_OVERLAYS
 //     defaultEnemyIds: [id],           // fallback pool when no overlay matches
@@ -105,9 +105,15 @@ function attachBranch(parentIdx, positions, grid, rng) {
 
 function buildEnemyNpc(npcId, roomId, creatureId, style, c, statBlockFor, extra = {}) {
   const name = c.enemyName ? c.enemyName(creatureId) : creatureId;
+  // The host's provider is told whether this is the vault boss, so it can hand
+  // back a raised stat block (multiattack, legendary actions) instead of the
+  // ordinary one. Providers that ignore the second argument are unaffected.
+  const block = statBlockFor(creatureId, { isBoss: extra.isBoss === true });
   return {
     id: npcId, roomId, name, creatureId,
-    ...statBlockFor(creatureId),
+    ...block,
+    // A raised block carries its own display name ("Ancient Wight").
+    ...(block?.name ? { name: block.name } : {}),
     conditions: [], attitude: 'hostile', alive: true,
     intro: c.enemyIntro ? c.enemyIntro(creatureId, name, style) : `${name} appears, hostile.`,
     ...extra,
