@@ -32,6 +32,13 @@ export { call, chatCompletion, chatStream, repairJson, checkKey } from './src/ll
 export { generateImage, parseImageFromResponse } from './src/llm/image.js';
 export { synthesizeSpeech, transcribeAudio, pcmToWav, bytesToBase64, TTS_FALLBACKS, PCM_MODELS } from './src/llm/audio.js';
 
+// ── Ledger (world memory: base ⊕ patches ⊕ views) ─────────────────────────────
+export { makeId, slugSegment, isValidId, parentOf, kindOf, isUnder } from './src/ledger/ids.js';
+export {
+  makePatch, appendPatch, fold, foldAll, getPath, historyOf,
+  dirtyTargets, recentCauses, compact, SCOPES, KINDS,
+} from './src/ledger/patch.js';
+
 // ── Worldgen ───────────────────────────────────────────────────────────────────
 export { pick, pickN, shuffle, randInt, mintSeed, mulberry32 } from './src/worldgen/rng.js';
 export { buildBlueprint, blueprintContext, worldSeedConstraints, beatsHints, factionsHints, regionHints, settlementHints } from './src/worldgen/blueprint.js';
