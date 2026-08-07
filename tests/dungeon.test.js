@@ -90,3 +90,68 @@ describe('generateDungeon', () => {
     assert.deepEqual(generateDungeon(11, opts(11)), generateDungeon(11, opts(11)));
   });
 });
+
+// The lock-and-key puzzle must be a genuine CUT of the room graph.
+//
+// Exits are derived for every grid-adjacent room pair, but only the single
+// spine edge used to be locked — so a side route around the gate left the vault
+// reachable without the key in ~69% of seeds (measured over 5000). The puzzle
+// was decorative in two dungeons out of three.
+describe('lock-and-key is a graph cut', () => {
+  const reachableWithoutKey = (rooms) => {
+    const seen = new Set(['room-0']);
+    const queue = ['room-0'];
+    while (queue.length) {
+      for (const exit of rooms[queue.shift()].exits) {
+        if (exit.locked || seen.has(exit.roomId)) continue;
+        seen.add(exit.roomId);
+        queue.push(exit.roomId);
+      }
+    }
+    return seen;
+  };
+  const keyRoomOf = (rooms) =>
+    Object.keys(rooms).find(id => (rooms[id].loot ?? []).some(i => i.id === 'found-key')) ?? null;
+
+  it('never leaves the vault reachable without the key', () => {
+    const bypassed = [];
+    for (let s = 0; s < 400; s++) {
+      const d = generateDungeon(s, opts(s));
+      if (reachableWithoutKey(d.rooms).has(d.exitRoomId)) bypassed.push(s);
+    }
+    assert.deepEqual(bypassed, [], `seeds where the gate can be walked around: ${bypassed.slice(0, 10).join(', ')}`);
+  });
+
+  it('always leaves the key reachable (no soft-locks)', () => {
+    const stuck = [];
+    for (let s = 0; s < 400; s++) {
+      const d = generateDungeon(s, opts(s));
+      const key = keyRoomOf(d.rooms);
+      if (!key || !reachableWithoutKey(d.rooms).has(key)) stuck.push(s);
+    }
+    assert.deepEqual(stuck, [], `seeds where the key cannot be reached: ${stuck.slice(0, 10).join(', ')}`);
+  });
+
+  it('locks crossings in both directions so backtracking behaves', () => {
+    for (let s = 0; s < 100; s++) {
+      const { rooms } = generateDungeon(s, opts(s));
+      for (const [id, room] of Object.entries(rooms)) {
+        for (const exit of room.exits) {
+          const back = rooms[exit.roomId].exits.find(e => e.roomId === id);
+          assert.equal(back.locked, exit.locked, `seed ${s}: ${id} <-> ${exit.roomId} disagree on locked`);
+        }
+      }
+    }
+  });
+
+  it('every locked exit names the key that opens it', () => {
+    for (let s = 0; s < 100; s++) {
+      const { rooms } = generateDungeon(s, opts(s));
+      for (const room of Object.values(rooms)) {
+        for (const exit of room.exits) {
+          if (exit.locked) assert.equal(exit.keyId, 'found-key');
+        }
+      }
+    }
+  });
+});
