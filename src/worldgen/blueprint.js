@@ -12,6 +12,8 @@
 // formatters turn a blueprint into the constraint strings appended to each
 // generator's system prompt (host-agnostic — they read the blueprint shape only).
 
+import { TONES } from './tones.js';
+
 import { pick, pickN, mulberry32 } from './rng.js';
 
 function hashString(s) {
@@ -23,7 +25,7 @@ function hashString(s) {
 // ─── Default archetype tables ─────────────────────────────────────────────────
 
 export const DEFAULT_TABLES = Object.freeze({
-  tones: ['grimdark', 'heroic', 'mysterious', 'tragic', 'whimsical'],
+  tones: [...TONES],
 
   worldArchetypes: [
     'post-collapse empire', 'frontier expansion', 'divine conflict',
