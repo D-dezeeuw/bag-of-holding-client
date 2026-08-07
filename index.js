@@ -94,3 +94,10 @@ export { buildEpub } from './src/output/epub.js';
 
 // ── Persistence (versioned save envelope + migration runner + commit combinator) ─
 export { wrapEnvelope, loadEnvelope, saveEnvelope, makeCommit } from './src/persistence/envelope.js';
+// Two-tier persistence: a small synchronous hot slice in localStorage, an
+// unbounded async cold archive in IndexedDB. Degrades to hot-only when the
+// platform has no IndexedDB, so the game keeps working.
+export {
+  openCold, coldPut, coldGet, coldKeys, coldAll, coldDelete,
+  appendSegment, readSegments, segmentKey, splitSave,
+} from './src/persistence/idb.js';
