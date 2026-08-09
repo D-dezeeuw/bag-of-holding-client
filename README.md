@@ -9,7 +9,7 @@ reusable.
 - **Zero runtime dependencies.** Single ESM surface, config-injected (no
   globals), `node --test`-friendly.
 - **Provider-agnostic LLM client** (OpenRouter default): tiered model routing,
-  JSON-schema-constrained completions, JSON-repair retry, 400/429 fallbacks,
+  JSON-schema-constrained completions, JSON-repair retry, model fallbacks on 400/404/429,
   streaming with a `JsonFieldStreamer`, and a typed `ApiError`.
 - **Layered worldgen** — a seeded blueprint factory + a `runPipeline` orchestrator
   that threads digests, fans out parallel layers, retries, and continues past
@@ -203,7 +203,8 @@ any genre.
 
 | Module | Owns |
 |---|---|
-| `llm/transport` `llm/tiers` `llm/client` `llm/stream` | the structured/streaming LLM client |
+| `llm/transport` `llm/tiers` `llm/client` `llm/stream` | the structured/streaming LLM client (deadlines + AbortSignal end to end) |
+| `llm/catalog` `llm/image` `llm/audio` | live model-catalog healing, scene-image generation, TTS/STT — all under the same deadlines and cost accounting |
 | `worldgen/rng` `worldgen/blueprint` `worldgen/pipeline` `worldgen/schemas` `worldgen/tones` `worldgen/geography` | seeded blueprint + resumable pipeline runner + layer schemas + the shared tone vocabulary + the region graph |
 | `dungeon/generate` | the dungeon-graph algorithm (injected stat blocks + content) |
 | `narrative/beats` `narrative/acts` `narrative/clocks` `narrative/factions` | beat evaluator, act arc, faction/threat clocks, reputation math |
@@ -211,6 +212,7 @@ any genre.
 | `persistence/envelope` `persistence/idb` | versioned saves (strict migrations, backup rotation) + a hot/cold split |
 | `settlement/economy` | trade / quests / inventory / dialogue-memory helpers |
 | `travel/fsm` | the overworld travel state machine |
+| `output/zip` `output/epub` | store-only ZIP + EPUB builders (browser-only canvas cover) |
 
 ## Develop
 

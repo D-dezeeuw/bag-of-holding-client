@@ -94,11 +94,31 @@ describe('stalls', () => {
       'judge-only progression could freeze a campaign forever');
   });
 
-  it('any progress clears the stall', () => {
+  it('progress restarts the stall clock from NOW, not from turn 0', () => {
+    // The old behaviour set stallSince to null on any flag, and the detector
+    // read null as 0 — so raising a flag at turn 120 made the thread read as
+    // stalled at turn 121. The test used to assert that intermediate null;
+    // now it asserts the behaviour the mechanism exists for.
     let t = pushAct(emptyThread(), act1());
-    t = completeBeat(t, 'b1', { turn: 10 });
-    t = setFlag(t, 'something-happened');
-    assert.equal(t.stallSince, null);
+    t = completeBeat(t, 'b1', { turn: 100 });
+    assert.equal(isStalled(t, { turn: 120, patience: 60 }), false);
+    t = setFlag(t, 'something-happened', { turn: 120 });
+    assert.equal(isStalled(t, { turn: 121, patience: 60 }), false,
+      'fresh progress must not read as a stall');
+    assert.equal(isStalled(t, { turn: 180, patience: 60 }), true,
+      'sixty idle turns after the last progress is a stall');
+  });
+
+  it('a deadlocked act — no eligible beat, act incomplete — reads as stalled', () => {
+    // An act whose remaining beats are gated behind flags nothing raises used
+    // to be invisible to escalation forever: the hardest-stuck state was the
+    // one the mechanism could not see.
+    const gated = makeAct({ id: 'a2', title: 'x', premise: 'x', beats: [
+      { id: 'locked', title: 'never', dramaticPurpose: 'never', requires: ['flag-nothing-raises'] },
+    ] });
+    const t = pushAct(emptyThread(), gated);
+    assert.equal(activeBeat(t), null, 'precondition: no beat is eligible');
+    assert.equal(isStalled(t, { turn: 9999, patience: 60 }), true);
   });
 
   it('a finished thread is never stalled', () => {

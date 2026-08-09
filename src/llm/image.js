@@ -63,5 +63,9 @@ export async function generateImage(config, { prompt, model, maxTokens = 2048 } 
   try { data = await res.json(); } catch { return null; }
 
   if (data.usage?.total_tokens) config?.onTokens?.(data.usage.total_tokens);
+  // A sketch costs ~47x a text turn — the one tier the spend meter most needs
+  // to see, and the one whose real cost used to be dropped on the floor.
+  const usd = data.usage?.cost;
+  if (typeof usd === 'number' && usd > 0) config?.onCost?.(usd);
   return parseImageFromResponse(data);
 }

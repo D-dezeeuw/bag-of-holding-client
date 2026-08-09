@@ -76,12 +76,24 @@ export function authHeaders(config) {
 
 // POST JSON and return the raw Response. Throws ApiError(status, body) on !ok.
 // Callers that need the body as JSON/blob/stream read it off the Response.
-export async function post(config, path, body, { stream = false } = {}) {
-  const res = await fetch(`${apiBase(config)}${path}`, {
-    method:  'POST',
-    headers: authHeaders(config),
-    body:    JSON.stringify(body),
-  });
+// Runs under the same deadline machinery as the chat paths — before this,
+// image generation and speech calls through here could hang forever, which
+// contradicted the header's "every call now runs under a deadline".
+export async function post(config, path, body, { signal, timeoutMs } = {}) {
+  const deadline = withDeadline(signal ?? config?.signal, timeoutMs ?? config?.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(`${apiBase(config)}${path}`, {
+      method:  'POST',
+      headers: authHeaders(config),
+      body:    JSON.stringify(body),
+      signal:  deadline.signal,
+    });
+  } catch (err) {
+    throw asTransportError(err, deadline.signal);
+  } finally {
+    deadline.done();
+  }
   if (!res.ok) {
     const txt = await res.text().catch(() => '');
     throw new ApiError(res.status, txt.slice(0, 200));

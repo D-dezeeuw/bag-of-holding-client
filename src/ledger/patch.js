@@ -27,24 +27,52 @@ export const KINDS  = Object.freeze(['mechanical', 'canon']);
 
 const SCOPE_RANK = { local: 0, regional: 1, world: 2 };
 
+// Path segments that would write into the prototype chain instead of the
+// record, or that split() produces from a malformed path. Patch paths come
+// from LLM extraction, so they are input, not code.
+const FORBIDDEN_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function validatePath(path) {
+  const parts = String(path).split('.');
+  for (const k of parts) {
+    if (!k) throw new Error(`invalid patch path '${path}': empty segment`);
+    if (FORBIDDEN_SEGMENTS.has(k)) throw new Error(`invalid patch path '${path}': forbidden segment '${k}'`);
+  }
+  return parts;
+}
+
 export function makePatch({ turn, chapter = null, target, scope = 'local', kind = 'canon', path, from = null, to, because = null, source = null }) {
   if (!target)                     throw new Error('patch requires a target entity id');
   if (!path)                       throw new Error('patch requires a field path');
+  validatePath(path);
   if (!SCOPES.includes(scope))     throw new Error(`unknown patch scope '${scope}'`);
   if (!KINDS.includes(kind))       throw new Error(`unknown patch kind '${kind}'`);
   if (!Number.isFinite(turn))      throw new Error('patch requires a numeric turn');
   return { turn, chapter, target, scope, kind, path, from, to, because, source };
 }
 
+// Two field paths conflict when they are the same field or one contains the
+// other: a write to `stats` replaces everything under `stats.hp`, and a write
+// to `stats.hp.current` reaches inside `stats.hp`. Exact-string comparison —
+// what this module used before — let canon overwrite dice facts by aiming one
+// level up or down.
+export function pathsConflict(a, b) {
+  return a === b || a.startsWith(b + '.') || b.startsWith(a + '.');
+}
+
 // ─── Folding ─────────────────────────────────────────────────────────────────
 
 function setPath(obj, path, value) {
-  const parts = String(path).split('.');
-  const out   = { ...obj };
-  let cursor  = out;
+  const parts = validatePath(path);
+  // Arrays stay arrays: `{ ...['a','b'] }` silently turns an inventory list
+  // into `{ '0': 'a', '1': 'b' }`, which is how a patch through an index used
+  // to destroy the list it was editing.
+  const copy = (v) => (Array.isArray(v) ? [...v] : (v && typeof v === 'object') ? { ...v } : {});
+  const out  = copy(obj);
+  let cursor = out;
   for (let i = 0; i < parts.length - 1; i++) {
     const k = parts[i];
-    cursor[k] = (cursor[k] && typeof cursor[k] === 'object') ? { ...cursor[k] } : {};
+    cursor[k] = copy(cursor[k]);
     cursor = cursor[k];
   }
   cursor[parts[parts.length - 1]] = value;
@@ -55,19 +83,40 @@ export function getPath(obj, path) {
   return String(path).split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
 }
 
+// The paths on a base record that compaction marked as mechanically owned
+// (see `compact`). Stored under a reserved key so the protection survives the
+// patches themselves being folded away; stripped from folded views.
+const MECH_KEY = '__mech';
+
+export function mechanicalPathsOf(base) {
+  return Array.isArray(base?.[MECH_KEY]) ? base[MECH_KEY] : [];
+}
+
 // Current state of one entity: its base record with every patch applied in
 // order. Later patches win; a mechanical patch is never overwritten by a canon
 // patch that came after it (the gate in appendPatch prevents that pairing from
 // being recorded at all, but folding stays defensive so a hand-edited or
-// migrated ledger cannot corrupt ground truth).
+// migrated ledger cannot corrupt ground truth). Both defenses are prefix-aware,
+// and both honour mechanical ownership that compaction folded into the base.
+// Patches marked `folded: true` are already inside the base and are skipped —
+// they stay in the ledger as history, not as pending writes.
 export function fold(base, patches, target) {
+  const mechanicalPaths = new Set(mechanicalPathsOf(base));
+  const conflictsMechanical = (path) => {
+    for (const m of mechanicalPaths) if (pathsConflict(m, path)) return true;
+    return false;
+  };
   let out = base ?? {};
-  const mechanicalPaths = new Set();
   for (const p of patches) {
     if (p.target !== target) continue;
-    if (p.kind === 'canon' && mechanicalPaths.has(p.path)) continue;
+    if (p.folded === true) continue;
+    if (p.kind === 'canon' && conflictsMechanical(p.path)) continue;
     if (p.kind === 'mechanical') mechanicalPaths.add(p.path);
     out = setPath(out, p.path, p.to);
+  }
+  if (out && typeof out === 'object' && MECH_KEY in out) {
+    const { [MECH_KEY]: _mech, ...view } = out;
+    return view;
   }
   return out;
 }
@@ -87,17 +136,30 @@ export function foldAll(bases, patches, prefix) {
 // ─── Appending ───────────────────────────────────────────────────────────────
 
 // Append with the precedence rule enforced: a canon patch may not contradict a
-// mechanical fact on the same field. The narrator saying "the goblin flees,
-// unharmed" cannot un-wound a goblin the dice already hurt.
+// mechanical fact on the same field — or on a field that CONTAINS or IS INSIDE
+// it. The narrator saying "the goblin flees, unharmed" cannot un-wound a goblin
+// the dice already hurt, and writing to the goblin's whole `stats` object is
+// not a loophole for the same lie one level up.
+//
+// `bases` is optional: when the caller passes the per-entity base snapshots,
+// mechanical ownership that compaction folded into a base keeps protecting the
+// path even though the original patches are gone from the ledger.
 //
 // Returns { ok: true, ledger } or { ok: false, reason, conflict } — callers
 // count rejections, because a high rate means the narrator prompt is drifting.
-export function appendPatch(ledger, patch) {
+export function appendPatch(ledger, patch, bases = null) {
   if (patch.kind === 'canon') {
     const conflict = [...ledger].reverse().find(p =>
-      p.kind === 'mechanical' && p.target === patch.target && p.path === patch.path);
-    if (conflict && conflict.to !== patch.to) {
+      p.kind === 'mechanical' && p.target === patch.target && pathsConflict(p.path, patch.path));
+    // Same field re-asserting the same value is redundancy, not contradiction;
+    // different fields (parent/child) have incomparable values — always reject.
+    if (conflict && (conflict.path !== patch.path || conflict.to !== patch.to)) {
       return { ok: false, reason: 'canon contradicts mechanical state', conflict };
+    }
+    const baseMech = mechanicalPathsOf(bases?.[patch.target]);
+    const owned = baseMech.find(m => pathsConflict(m, patch.path));
+    if (owned) {
+      return { ok: false, reason: 'canon contradicts compacted mechanical state', conflict: { path: owned } };
     }
   }
   return { ok: true, ledger: [...ledger, patch] };
@@ -145,24 +207,49 @@ export function recentCauses(ledger, { limit = 8, minScope = 'local', sinceTurn 
 
 // ─── Compaction ──────────────────────────────────────────────────────────────
 
-// Fold old local-scope patches into per-entity base snapshots so an 80-hour
-// ledger stays bounded. Deterministic: the same ledger compacts to the same
-// result, and folding the compacted world equals folding the original.
-// Regional and world patches are kept — they are the campaign's history.
+// Fold old patches into per-entity base snapshots so an 80-hour ledger stays
+// bounded. Deterministic: the same ledger compacts to the same result, and
+// folding the compacted world equals folding the original — for real, which
+// takes three properties the previous implementation lacked:
+//
+//   1. The ENTIRE chronological prefix (every patch with turn < beforeTurn,
+//      any scope) folds into base, so nothing that originally applied before
+//      a kept patch ends up re-applying after it. (Folding only the local
+//      ones reordered history: a kept regional patch that predated a folded
+//      local one suddenly applied on top of it, and the fold changed.)
+//   2. Regional and world patches from that prefix STAY in the ledger — they
+//      are the campaign's history, and `recentCauses`/`historyOf` still cite
+//      them — but marked `folded: true`, so `fold` never applies them twice.
+//      Local patches, pure detail, are dropped.
+//   3. Mechanical ownership survives the fold: the folded prefix's mechanical
+//      paths are recorded on the base (see `mechanicalPathsOf`), so a canon
+//      patch appended AFTER compaction still cannot overwrite what the dice
+//      decided before it.
 export function compact(bases, ledger, { beforeTurn, keepScopes = ['regional', 'world'] } = {}) {
   const keep = new Set(keepScopes);
-  const stale = ledger.filter(p => p.turn < beforeTurn && !keep.has(p.scope));
-  if (!stale.length) return { bases: { ...bases }, ledger: [...ledger], foldedCount: 0 };
+  const prefix = ledger.filter(p => p.turn < beforeTurn && p.folded !== true);
+  if (!prefix.length) return { bases: { ...bases }, ledger: [...ledger], foldedCount: 0 };
 
   const nextBases = { ...bases };
-  for (const target of new Set(stale.map(p => p.target))) {
-    // Fold the stale patches only; anything kept still applies on top later.
-    nextBases[target] = fold(nextBases[target], stale, target);
+  for (const target of new Set(prefix.map(p => p.target))) {
+    const folded = fold(nextBases[target], prefix, target);
+    const mech = new Set(mechanicalPathsOf(nextBases[target]));
+    for (const p of prefix) {
+      if (p.target === target && p.kind === 'mechanical') mech.add(p.path);
+    }
+    nextBases[target] = mech.size ? { ...folded, __mech: [...mech].sort() } : folded;
   }
-  const staleSet = new Set(stale);
+
+  const prefixSet = new Set(prefix);
+  const nextLedger = [];
+  for (const p of ledger) {
+    if (!prefixSet.has(p)) { nextLedger.push(p); continue; }
+    if (keep.has(p.scope)) nextLedger.push({ ...p, folded: true });
+    // local prefix patches are folded in and dropped.
+  }
   return {
     bases:  nextBases,
-    ledger: ledger.filter(p => !staleSet.has(p)),
-    foldedCount: stale.length,
+    ledger: nextLedger,
+    foldedCount: prefix.length,
   };
 }

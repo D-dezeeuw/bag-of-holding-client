@@ -111,22 +111,35 @@ export async function runPipeline(layers, {
       }
     }));
 
+    // Adopt every successful sibling FIRST, then decide whether a critical
+    // failure aborts the group. Throwing mid-iteration used to discard the
+    // paid results of siblings later in the array and skipped the group's
+    // checkpoint — so PipelineError.results didn't carry "everything the
+    // pipeline HAD produced", and a resumed run re-paid for completed layers.
+    let criticalFailure = null;
     for (const { layer, result, error, fromCheckpoint } of settled) {
       if (result == null) {
         // A checkpoint that recorded `null` is a decision, not a fresh failure:
         // re-throwing on it would make a resumed run unresumable.
         if (layer.critical && !fromCheckpoint) {
-          throw new PipelineError(
-            `Critical worldgen layer '${layer.name}' failed: ${error?.message ?? 'no result'}`,
-            { ...results },
-          );
+          criticalFailure = criticalFailure ?? { layer, error };
+        } else {
+          results[layer.name] = null;
+          if (!fromCheckpoint) onProgress('skip', { layer: layer.name, reason: error?.message ?? 'empty' });
         }
-        results[layer.name] = null;
-        if (!fromCheckpoint) onProgress('skip', { layer: layer.name, reason: error?.message ?? 'empty' });
         continue;
       }
       adopt(layer, result);
       if (!fromCheckpoint) onProgress('detail', { layer: layer.name, result });
+    }
+
+    if (criticalFailure) {
+      onCheckpoint?.({ ...results });
+      const { layer, error } = criticalFailure;
+      throw new PipelineError(
+        `Critical worldgen layer '${layer.name}' failed: ${error?.message ?? 'no result'}`,
+        { ...results },
+      );
     }
 
     onCheckpoint?.({ ...results });
