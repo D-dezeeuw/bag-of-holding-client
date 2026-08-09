@@ -260,13 +260,13 @@ export function generateDungeon(seed, opts = {}) {
   let keyPlaced = false;
   for (const bIdx of branchIds) {
     if (spineIds.indexOf(branchParent[bIdx]) <= gateSpineIdx) {
-      rooms[`room-${bIdx}`].loot.push({ id: 'found-key', name: keyItem.name, description: keyItem.desc, taken: false });
+      rooms[`room-${bIdx}`].loot.push({ ...keyItem, description: keyItem.desc ?? keyItem.description, taken: false });
       keyPlaced = true; break;
     }
   }
   if (!keyPlaced) {
     const keyRoomIdx = rpick(spineIds.slice(1, gateSpineIdx + 1), rng);
-    rooms[`room-${keyRoomIdx}`].loot.push({ id: 'found-key', name: keyItem.name, description: keyItem.desc, taken: false });
+    rooms[`room-${keyRoomIdx}`].loot.push({ ...keyItem, description: keyItem.desc ?? keyItem.description, taken: false });
   }
 
   rooms[`room-${spineLen - 1}`].loot.push(treasure);
@@ -297,13 +297,17 @@ export function generateDungeon(seed, opts = {}) {
     }
   }
 
-  // 7. scatter loot in keyless branch rooms
+  // 7. scatter loot in keyless branch rooms.
+  // The WHOLE item passes through — the pool's mechanical fields (heals,
+  // gold, value, lore, consumable) used to be stripped here, so the host's
+  // use-item machinery could never fire on generated loot: the healing
+  // potion in the pool healed nothing by the time it reached a room.
   const lootPool = c.loot ?? [];
   for (const bIdx of branchIds) {
     const room = rooms[`room-${bIdx}`];
     if (room.loot.length === 0 && lootPool.length) {
-      const item = rpick(lootPool, rng);
-      room.loot.push({ id: `loot-${bIdx}`, name: item.name, description: item.desc, taken: false });
+      const { desc, ...fields } = rpick(lootPool, rng);
+      room.loot.push({ ...fields, id: `loot-${bIdx}`, description: desc ?? fields.description, taken: false });
     }
   }
 

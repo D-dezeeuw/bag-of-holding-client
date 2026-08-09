@@ -22,11 +22,14 @@ export function isFull(clock) { return clock.filled >= clock.segments; }
 
 // Advance (or wind back, with a negative amount). Returns the clock and whether
 // this call is the one that filled it — callers fire consequences exactly once.
+// "Just filled" means "full and not yet fired", not "crossed the threshold on
+// this call": a clock CREATED already full (migrated state, a host that clamps)
+// used to sit at 'breaking' forever without its consequences ever firing.
 export function advance(clock, amount = 1) {
   if (clock.fired) return { clock, justFilled: false };
   const filled = Math.max(0, Math.min(clock.segments, clock.filled + amount));
   const next   = { ...clock, filled };
-  const justFilled = filled >= clock.segments && clock.filled < clock.segments;
+  const justFilled = filled >= clock.segments;
   return { clock: justFilled ? { ...next, fired: true } : next, justFilled };
 }
 
