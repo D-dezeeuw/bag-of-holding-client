@@ -66,12 +66,22 @@ export function completeBeat(thread, beatId, { turn = 0 } = {}) {
   const allDone = act.beats.every(b => isDone(next, b));
   if (!allDone) return { ...next, stallSince: turn };
   const acts = next.acts.map((a, i) => i === next.actIndex ? { ...a, status: 'complete', endedAtTurn: turn } : a);
-  return { ...next, acts, actIndex: next.actIndex + 1, stallSince: null };
+  // The close STAMPS the stall clock rather than clearing it: nulling it here
+  // made the next act measure staleness from `startedAtTurn ?? 0` — and
+  // nothing ever set startedAtTurn, so every act after the first was born
+  // "stalled since turn 0" and fired one spurious escalation on its first
+  // turn (2026-08-09 audit). The moment an act ends IS the last moment the
+  // story provably moved.
+  return { ...next, acts, actIndex: next.actIndex + 1, stallSince: turn };
 }
 
 // Append a freshly generated act (the host generates it at the transition).
-export function pushAct(thread, act) {
-  return { ...thread, acts: [...thread.acts, { ...act, index: thread.acts.length }] };
+// `turn` marks adoption as story movement, so an act adopted mid-campaign
+// measures its patience from its own birth, not from the dawn of the world.
+export function pushAct(thread, act, { turn = null } = {}) {
+  const next = { ...thread, acts: [...thread.acts, { ...act, index: thread.acts.length, startedAtTurn: turn }] };
+  if (turn !== null) next.stallSince = turn;
+  return next;
 }
 
 // Has the story stopped moving? A thread that cannot advance should escalate —

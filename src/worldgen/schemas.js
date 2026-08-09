@@ -191,3 +191,56 @@ export const SETTLEMENT_SCHEMA = {
   required: ['id', 'name', 'description', 'npcs', 'exits'],
   additionalProperties: false,
 };
+
+// ─── Layered-world outlines (doc 17, textual LOD) ────────────────────────────
+//
+// An outline is detail level 1: ~40–60 words of what a place is ABOUT, plus
+// the facts lower layers inherit (faction presence, conflicts). One call
+// outlines all continents at genesis; a province outlines on first approach.
+
+export const CONTINENT_OUTLINE_SCHEMA = {
+  type: 'object',
+  properties: {
+    id:     { type: 'string' },
+    name:   { type: 'string' },
+    digest: { type: 'string' },
+    factionHomelands: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          factionId: { type: 'string' },
+          presence:  { type: 'string', enum: ['homeland', 'strong', 'contested', 'absent'] },
+        },
+        required: ['factionId', 'presence'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['id', 'name', 'digest', 'factionHomelands'],
+  additionalProperties: false,
+};
+
+export const CONTINENTS_OUTLINE_SCHEMA = {
+  type: 'object',
+  properties: {
+    continents: { type: 'array', items: CONTINENT_OUTLINE_SCHEMA },
+  },
+  required: ['continents'],
+  additionalProperties: false,
+};
+
+export const PROVINCE_OUTLINE_SCHEMA = {
+  type: 'object',
+  properties: {
+    id:       { type: 'string' },
+    name:     { type: 'string' },
+    digest:   { type: 'string' },
+    conflicts:  { type: 'array', items: { type: 'string' } },
+    landmarks:  { type: 'array', items: { type: 'string' } },
+    dominantFactionId: { type: ['string', 'null'] },
+    factionStance:     { type: 'string', enum: ['dominant', 'contested', 'absent'] },
+  },
+  required: ['id', 'name', 'digest', 'conflicts', 'landmarks', 'dominantFactionId', 'factionStance'],
+  additionalProperties: false,
+};

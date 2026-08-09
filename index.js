@@ -42,6 +42,7 @@ export { makeId, slugSegment, isValidId, parentOf, kindOf, isUnder } from './src
 export {
   makePatch, appendPatch, fold, foldAll, getPath, historyOf,
   dirtyTargets, recentCauses, compact, SCOPES, KINDS,
+  pathsConflict, mechanicalPathsOf,
 } from './src/ledger/patch.js';
 
 // ── Worldgen ───────────────────────────────────────────────────────────────────
@@ -52,10 +53,13 @@ export { runPipeline, ensureDigest, withRetry, PipelineError } from './src/world
 export {
   emptyGeography, addNode, connect, neighbours, expandFrom, markVisited,
   knownMap, routeBetween, DIRECTIONS,
+  childrenOf, ancestorsOf, promoteNode,
 } from './src/worldgen/geography.js';
+export { mintWorldSkeleton, adoptFlatWorld, CLIMATE_BANDS } from './src/worldgen/skeleton.js';
 export {
   WORLD_SEED_SCHEMA, REGION_SCHEMA, NPC_SCHEMA, FACTION_SCHEMA,
   BEAT_SCHEMA, RED_THREAD_SCHEMA, FACTIONS_SCHEMA, SETTLEMENT_SCHEMA,
+  CONTINENT_OUTLINE_SCHEMA, CONTINENTS_OUTLINE_SCHEMA, PROVINCE_OUTLINE_SCHEMA,
 } from './src/worldgen/schemas.js';
 
 // ── Dungeon ────────────────────────────────────────────────────────────────────

@@ -193,9 +193,18 @@ export function generateDungeon(seed, opts = {}) {
   const dk = c.domainKeys ?? {};
   const genTreasures = c.treasures?.length ? c.treasures : [{ name: 'hoard of coin', desc: 'A glittering pile of gold.' }];
   const genKeys = c.keys?.length ? c.keys : [{ name: 'iron key', desc: 'A heavy iron key.' }];
+  // Full field pass-through, same contract as scattered loot and the key: the
+  // treasure was the ONE item that kept its pool `desc` unmapped (the vault's
+  // goal object reached the narrator descriptionless) and had its pool/domain
+  // value clobbered by a flat 250 (2026-08-09 audit).
+  const mkTreasure = (t) => {
+    const { desc, ...fields } = t;
+    return { ...fields, id: 'treasure', type: 'treasure',
+             description: desc ?? t.description, value: t.value ?? 250, taken: false };
+  };
   const treasure = (primaryDomain && dt[primaryDomain])
-    ? { ...dt[primaryDomain], id: 'treasure', type: 'treasure', value: 250, taken: false }
-    : { ...rpick(genTreasures, rng), id: 'treasure', type: 'treasure', value: 250, taken: false };
+    ? mkTreasure(dt[primaryDomain])
+    : mkTreasure(rpick(genTreasures, rng));
   const keyItem = (primaryDomain && dk[primaryDomain])
     ? { ...dk[primaryDomain], id: 'found-key', taken: false }
     : { ...rpick(genKeys, rng), id: 'found-key', taken: false };

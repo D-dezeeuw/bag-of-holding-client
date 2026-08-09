@@ -155,3 +155,26 @@ describe('lock-and-key is a graph cut', () => {
     }
   });
 });
+
+describe('the vault treasure passes its fields through (2026-08-09 audit)', () => {
+  it('keeps the pool description and value', () => {
+    const richContent = {
+      ...content,
+      treasures: [{ name: 'gold idol', desc: 'A gold idol with garnet eyes.', value: 999, lore: 'old' }],
+    };
+    const d = generateDungeon(11, { ...opts(11), content: richContent });
+    const treasure = Object.values(d.rooms).flatMap(r => r.loot ?? []).find(i => i.type === 'treasure');
+    assert.equal(treasure.description, 'A gold idol with garnet eyes.',
+      'the campaign goal object reached the narrator descriptionless');
+    assert.equal(treasure.value, 999, 'the flat 250 clobbered every authored value');
+    assert.equal(treasure.lore, 'old', 'full pass-through, same contract as scattered loot');
+    assert.equal(treasure.taken, false);
+  });
+
+  it('defaults value to 250 when the pool has none', () => {
+    const d = generateDungeon(12, opts(12));
+    const treasure = Object.values(d.rooms).flatMap(r => r.loot ?? []).find(i => i.type === 'treasure');
+    assert.equal(treasure.value, 250);
+    assert.ok(treasure.description, 'generic treasures carry their desc too');
+  });
+});
