@@ -171,3 +171,26 @@ describe('the GM directive', () => {
     assert.equal(directive(emptyThread()), null);
   });
 });
+
+describe('act transitions and the stall clock (2026-08-09 audit)', () => {
+  const oneBeatAct = (id, index = 0) => makeAct({ id, title: id, beats: [{ id: `${id}-b1` }], index });
+
+  it('an act adopted mid-campaign is not born stalled', () => {
+    let t = pushAct(emptyThread(), oneBeatAct('act-1'));
+    t = completeBeat(t, 'act-1-b1', { turn: 200 });
+    t = pushAct(t, oneBeatAct('act-2', 1));
+    // The close at turn 200 is story movement; act 2's patience runs from there.
+    assert.equal(isStalled(t, { turn: 201, patience: 60 }), false,
+      'the first turn of a freshly adopted act must not fire an escalation');
+    assert.equal(isStalled(t, { turn: 259, patience: 60 }), false);
+    assert.equal(isStalled(t, { turn: 260, patience: 60 }), true,
+      'a genuinely idle act 2 must still stall once patience runs out');
+  });
+
+  it('pushAct with a turn stamps the act and the clock', () => {
+    const t = pushAct(emptyThread(), oneBeatAct('act-1'), { turn: 42 });
+    assert.equal(t.acts[0].startedAtTurn, 42);
+    assert.equal(t.stallSince, 42);
+    assert.equal(isStalled(t, { turn: 43, patience: 60 }), false);
+  });
+});

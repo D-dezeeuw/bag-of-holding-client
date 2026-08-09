@@ -23,11 +23,55 @@ export function emptyGeography() {
 }
 
 // Add (or replace) a node. `stub: true` means "named but not yet generated".
-export function addNode(geo, { id, name, kind = 'region', seed, hook = null, stub = true }) {
+//
+// Layered-world fields (doc 17, textual LOD):
+//   parent — containment: a region belongs to a province, a province to a
+//            continent. `null` marks a top-level or legacy flat-world node.
+//   detail — how much of this place EXISTS as text:
+//            0 = stub (name + hook, deterministic, free)
+//            1 = outlined (~50-word digest: what the place is about)
+//            2 = detailed (full generation — today's region/settlement content)
+export function addNode(geo, { id, name, kind = 'region', seed, hook = null, stub = true,
+                               parent = null, detail = undefined }) {
+  const lod = detail ?? (stub ? 0 : 2);
   return {
     ...geo,
-    nodes: { ...geo.nodes, [id]: { id, name, kind, seed, hook, stub, discovered: !stub } },
+    nodes: { ...geo.nodes, [id]: { id, name, kind, seed, hook, stub, discovered: !stub, parent, detail: lod } },
   };
+}
+
+// Containment queries. Both walk the `parent` links only — edges are travel
+// topology, not ownership.
+export function childrenOf(geo, id) {
+  return Object.values(geo.nodes).filter(n => n.parent === id);
+}
+
+export function ancestorsOf(geo, id) {
+  const out = [];
+  let node = geo.nodes[id];
+  const seen = new Set();
+  while (node?.parent && !seen.has(node.parent)) {
+    seen.add(node.parent);
+    node = geo.nodes[node.parent];
+    if (node) out.push(node);
+  }
+  return out;
+}
+
+// Raise a node's level of detail — the lazy load's write half. Promotion is
+// monotonic (a place never forgets its outline) and can carry the real name
+// and the outline digest the LLM produced. Unknown ids are a no-op.
+export function promoteNode(geo, id, { detail, name = null, digest = null } = {}) {
+  const node = geo.nodes[id];
+  if (!node) return geo;
+  const next = { ...node, detail: Math.max(node.detail ?? 0, detail ?? node.detail ?? 0) };
+  if (name)   next.name = name;
+  if (digest) next.digest = digest;
+  // Only FULL detail clears the stub flag: an outlined place is still
+  // "named but not yet generated" — it has a digest, not content — and
+  // knownMap must keep showing it as rumoured, not visited.
+  if (next.detail >= 2) next.stub = false;
+  return { ...geo, nodes: { ...geo.nodes, [id]: next } };
 }
 
 // Connect two nodes. Edges are undirected but stored once, with the direction
@@ -71,6 +115,10 @@ export function expandFrom(geo, id, { count = 3, nameFor, hookFor } = {}) {
       seed,
       hook: hookFor ? hookFor(seed, direction) : null,
       stub: true,
+      // The frontier grows INSIDE the layer: a region's minted neighbours
+      // belong to the same province. Cross-border regions are minted by the
+      // skeleton, which knows where provinces meet.
+      parent: node.parent ?? null,
     });
     out = connect(out, node.id, childId, { direction, days: randInt(1, 3, rng) });
   }
@@ -83,7 +131,8 @@ export function markVisited(geo, id) {
   if (!node) return geo;
   return {
     ...geo,
-    nodes: { ...geo.nodes, [id]: { ...node, stub: false, discovered: true } },
+    // Visited means the content was generated — full detail by definition.
+    nodes: { ...geo.nodes, [id]: { ...node, stub: false, discovered: true, detail: 2 } },
     edges: geo.edges.map(e => (e.from === id || e.to === id) ? { ...e, discovered: true } : e),
   };
 }
