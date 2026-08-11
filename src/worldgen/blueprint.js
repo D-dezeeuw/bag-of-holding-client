@@ -180,6 +180,64 @@ export const DEFAULT_TABLES = Object.freeze({
   ],
 });
 
+// ─── Scoped-blueprint tables (doc 18 §3) ─────────────────────────────────────
+
+// Which climate bands each dungeon theme can appear in. A province's theme
+// palette is drawn from what its band permits — the structural fix for
+// "frozen tomb under a mushroom farm". Bands are skeleton.js CLIMATE_BANDS.
+export const THEME_CLIMATES = Object.freeze({
+  'undead crypt':          ['temperate', 'arid', 'frozen', 'highland'],
+  'goblin warren':         ['temperate', 'highland', 'arid'],
+  'cult sanctum':          ['temperate', 'coastal', 'arid', 'mire'],
+  'beast lair':            ['temperate', 'tropical', 'highland', 'frozen'],
+  'arcane ruin':           ['temperate', 'arid', 'highland', 'coastal'],
+  'flooded cavern':        ['coastal', 'mire', 'tropical'],
+  'haunted manor':         ['temperate', 'mire', 'coastal'],
+  'abandoned mine':        ['highland', 'arid', 'volcanic', 'frozen'],
+  'dragon hoard':          ['volcanic', 'highland', 'frozen', 'arid'],
+  'vampire castle':        ['temperate', 'highland', 'frozen'],
+  'elemental nexus':       ['volcanic', 'frozen', 'coastal', 'arid'],
+  'fungal depths':         ['mire', 'tropical', 'temperate'],
+  'clockwork vault':       ['arid', 'highland', 'temperate'],
+  'planar rift':           ['volcanic', 'arid', 'frozen', 'mire'],
+  'sunken temple':         ['coastal', 'tropical', 'mire'],
+  'frozen tomb':           ['frozen', 'highland'],
+  'spider nest':           ['tropical', 'mire', 'temperate', 'arid'],
+  'bandit fortress':       ['temperate', 'arid', 'highland', 'coastal'],
+  'fey glade gone wrong':  ['temperate', 'tropical', 'mire'],
+  'demonic hellgate':      ['volcanic', 'arid', 'mire'],
+  'ancient library':       ['temperate', 'arid', 'highland'],
+  'petrified giant':       ['arid', 'highland', 'volcanic'],
+  'living dungeon':        ['tropical', 'mire', 'volcanic', 'temperate'],
+  'dream prison':          ['frozen', 'mire', 'highland', 'coastal'],
+});
+
+// Settlement palettes per climate band (the singleton's settlementTypes table
+// is keyed by the legacy 20 climates; provinces speak in bands).
+export const BAND_SETTLEMENTS = Object.freeze({
+  temperate: ['farming village', 'crossroads town', 'mill town', 'market town'],
+  arid:      ['oasis trading post', 'canyon settlement', 'nomad bazaar', 'quarry town'],
+  frozen:    ['frontier outpost', 'mining camp', 'ice-fisher village', 'fortified lodge'],
+  tropical:  ['port town', 'pearl-diver hamlet', 'plantation estate', 'harbor village'],
+  volcanic:  ['forge city', 'obsidian mining camp', 'refugee camp', 'fire-cult commune'],
+  coastal:   ['fishing village', 'lighthouse garrison', 'shipwright town', 'smuggler cove'],
+  highland:  ['fortress town', 'goat-herder settlement', 'watchpost', 'sky temple'],
+  mire:      ['stilt village', 'herbalist commune', 'druid grove', 'peat-cutter hamlet'],
+});
+
+// How the world's one threat manifests on a given continent — same threat,
+// local clothes. Generic shapes; the model dresses them.
+export const THREAT_EXPRESSIONS = Object.freeze([
+  'an open assault no one pretends not to see',
+  'a quiet corruption working through trusted hands',
+  'a tightening grip on trade and travel',
+  'a heresy spreading faster than word of it',
+  'disappearances nobody official will count',
+  'a slow sickness of land and livestock',
+  'omens first, then emissaries, then demands',
+  'a beachhead no map admits exists',
+]);
+
 // ─── Blueprint builder ────────────────────────────────────────────────────────
 
 export function buildBlueprint(seed, { tables = DEFAULT_TABLES, rng } = {}) {
@@ -203,6 +261,72 @@ export function buildBlueprint(seed, { tables = DEFAULT_TABLES, rng } = {}) {
     buildingTypes:  pickN(tables.buildingTypes, 4, r),
     locationTypes:  pickN(tables.locationTypes, 3, r),
   };
+}
+
+// ─── Scoped blueprints (doc 18 §3) ───────────────────────────────────────────
+//
+// Each tree tier draws only what it owns, with the node's own rng, and
+// inherits the rest from its parent slice — never rerolling what an ancestor
+// decided. Geography-owned facts (a province's dealt climate band, a
+// continent's minted name culture) are passed in via opts so the slice and
+// the skeleton node always agree.
+
+const themesForBand = (band, tables) =>
+  (tables.dungeonThemes ?? []).filter(t => (THEME_CLIMATES[t] ?? []).includes(band));
+
+export function deriveBlueprint(parentBp, nodeSeed, scope, opts = {}) {
+  const { tables = DEFAULT_TABLES, rng, climate = null, culture = null } = opts;
+  const numSeed = typeof nodeSeed === 'number' ? nodeSeed : hashString(String(nodeSeed ?? 0));
+  const r = rng ?? mulberry32(numSeed >>> 0);
+
+  switch (scope) {
+    case 'world':
+      // Superset of the legacy singleton, so existing hosts keep working —
+      // the region-ish fields on it are deprecated, not removed.
+      return { ...buildBlueprint(numSeed, { tables }), scope: 'world', seed: numSeed };
+
+    case 'continent':
+      return {
+        scope: 'continent', seed: numSeed,
+        tone: parentBp?.tone ?? null,
+        threatType: parentBp?.threatType ?? null,
+        godDomains: parentBp?.godDomains ?? null,
+        threatExpression: pick(THREAT_EXPRESSIONS, r),
+        namingCulture: culture ?? null,
+      };
+
+    case 'province': {
+      const band = climate ?? pick(Object.keys(BAND_SETTLEMENTS), r);
+      const permitted = themesForBand(band, tables);
+      const paletteSize = Math.min(permitted.length, 2 + Math.floor(r() * 2)); // 2–3
+      return {
+        scope: 'province', seed: numSeed,
+        tone: parentBp?.tone ?? null,
+        threatExpression: parentBp?.threatExpression ?? null,
+        namingCulture: parentBp?.namingCulture ?? null,
+        climate: band,
+        dungeonThemePalette: pickN(permitted, Math.max(1, paletteSize), r),
+        settlementPalette: BAND_SETTLEMENTS[band] ?? BAND_SETTLEMENTS.temperate,
+        worshipSkew: pickN(
+          (parentBp?.godDomains ?? tables.godDomains).map(g => g.domain),
+          1 + Math.floor(r() * 2), r),
+      };
+    }
+
+    case 'region':
+      return {
+        scope: 'region', seed: numSeed,
+        tone: parentBp?.tone ?? null,
+        climate: parentBp?.climate ?? null, // the doc-17 rule: inherit, never reroll
+        settlementType: pick(parentBp?.settlementPalette ?? BAND_SETTLEMENTS.temperate, r),
+        dungeonTheme: pick(parentBp?.dungeonThemePalette ?? tables.dungeonThemes, r),
+        buildingTypes: pickN(tables.buildingTypes, 4, r),
+        locationTypes: pickN(tables.locationTypes, 3, r),
+      };
+
+    default:
+      throw new Error(`deriveBlueprint: unknown scope '${scope}'`);
+  }
 }
 
 // ─── Prompt-constraint formatters ─────────────────────────────────────────────
@@ -249,16 +373,22 @@ export function factionsHints(bp) {
     ? `\n\nCreate exactly ${bp.factionSlots.length} factions using these archetypes:\n${bp.factionSlots.map((f, i) => `${i + 1}. A "${f.type}" faction (${f.desc})`).join('\n')}\n\nEach faction MUST reference the world's red thread and primary threat.` : '';
 }
 
-export function regionHints(bp) {
-  const cl = bp?.climate ? `\n\nThe region's climate is: ${bp.climate}. Reflect this in the description, settlement architecture, and hazards.` : '';
-  const th = bp?.dungeonTheme ? `\nThe nearby dungeon should be themed as: ${bp.dungeonTheme}.` : '';
-  const lo = bp?.locationTypes?.length ? `\nNearby landmarks include: ${bp.locationTypes.join(', ')}.` : '';
-  return cl + th + lo;
+// The scoped variants: pass the node's derived slice as the second argument
+// and its fields win; omit it and the world singleton's fields apply, so
+// existing hosts keep working unmodified.
+export function regionHints(bp, slice = null) {
+  const s = slice ?? bp;
+  const cl = s?.climate ? `\n\nThe region's climate is: ${s.climate}. Reflect this in the description, settlement architecture, and hazards.` : '';
+  const th = s?.dungeonTheme ? `\nThe nearby dungeon should be themed as: ${s.dungeonTheme}.` : '';
+  const lo = (s?.locationTypes ?? bp?.locationTypes)?.length ? `\nNearby landmarks include: ${(s?.locationTypes ?? bp.locationTypes).join(', ')}.` : '';
+  const ex = s?.threatExpression ? `\nThe world's threat shows itself here as: ${s.threatExpression}.` : '';
+  return cl + th + lo + ex;
 }
 
-export function settlementHints(bp) {
-  const ty = bp?.settlementType ? `\n\nThis settlement is a: ${bp.settlementType}. Reflect this in the description and NPC roles.` : '';
-  const bu = bp?.buildingTypes?.length ? `\nKey buildings in this settlement: ${bp.buildingTypes.join(', ')}. NPCs should relate to these.` : '';
+export function settlementHints(bp, slice = null) {
+  const s = slice ?? bp;
+  const ty = s?.settlementType ? `\n\nThis settlement is a: ${s.settlementType}. Reflect this in the description and NPC roles.` : '';
+  const bu = (s?.buildingTypes ?? bp?.buildingTypes)?.length ? `\nKey buildings in this settlement: ${(s?.buildingTypes ?? bp.buildingTypes).join(', ')}. NPCs should relate to these.` : '';
   const fa = bp?.factionSlots?.length ? `\nAt least one NPC should be affiliated with one of these factions: ${bp.factionSlots.map(f => f.type).join(', ')}.` : '';
   return ty + bu + fa;
 }

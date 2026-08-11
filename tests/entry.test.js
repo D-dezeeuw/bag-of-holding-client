@@ -38,7 +38,7 @@ describe('public entry point', () => {
       llm: ['chatCompletion', 'chatStream', 'JsonFieldStreamer', 'ApiError', 'resolveModel'],
       media: ['generateImage', 'synthesizeSpeech', 'transcribeAudio'],
       ledger: ['makeId', 'makePatch', 'fold', 'compact'],
-      worldgen: ['buildBlueprint', 'runPipeline', 'mintWorldSkeleton', 'WORLD_SEED_SCHEMA'],
+      worldgen: ['buildBlueprint', 'deriveBlueprint', 'THEME_CLIMATES', 'runPipeline', 'mintWorldSkeleton', 'WORLD_SEED_SCHEMA'],
       dungeon: ['generateDungeon', 'DUNGEON_OVERLAYS'],
       narrative: ['currentBeat', 'makeAct', 'adjustReputation', 'makeClock'],
       settlement: ['resolvePurchase', 'makeQuest', 'pushDialogue'],
