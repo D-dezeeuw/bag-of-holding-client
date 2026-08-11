@@ -48,14 +48,18 @@ export {
 // ── Worldgen ───────────────────────────────────────────────────────────────────
 export { pick, pickN, shuffle, randInt, mintSeed, mulberry32 } from './src/worldgen/rng.js';
 export { TONES, isTone } from './src/worldgen/tones.js';
-export { buildBlueprint, blueprintContext, worldSeedConstraints, beatsHints, factionsHints, regionHints, settlementHints } from './src/worldgen/blueprint.js';
+export {
+  buildBlueprint, deriveBlueprint, blueprintContext, worldSeedConstraints,
+  beatsHints, factionsHints, regionHints, settlementHints,
+  THEME_CLIMATES, BAND_SETTLEMENTS, THREAT_EXPRESSIONS,
+} from './src/worldgen/blueprint.js';
 export { runPipeline, ensureDigest, withRetry, PipelineError } from './src/worldgen/pipeline.js';
 export {
   emptyGeography, addNode, connect, neighbours, expandFrom, markVisited,
   knownMap, routeBetween, DIRECTIONS,
   childrenOf, ancestorsOf, promoteNode,
 } from './src/worldgen/geography.js';
-export { mintWorldSkeleton, adoptFlatWorld, CLIMATE_BANDS } from './src/worldgen/skeleton.js';
+export { mintWorldSkeleton, adoptFlatWorld, CLIMATE_BANDS, SYLLABLES } from './src/worldgen/skeleton.js';
 export {
   WORLD_SEED_SCHEMA, REGION_SCHEMA, NPC_SCHEMA, FACTION_SCHEMA,
   BEAT_SCHEMA, RED_THREAD_SCHEMA, FACTIONS_SCHEMA, SETTLEMENT_SCHEMA,

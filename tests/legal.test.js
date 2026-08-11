@@ -19,8 +19,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { DEFAULT_TABLES, buildBlueprint, blueprintContext, worldSeedConstraints,
-         beatsHints, factionsHints, regionHints, settlementHints } from '../src/worldgen/blueprint.js';
+import { DEFAULT_TABLES, buildBlueprint, deriveBlueprint, blueprintContext,
+         worldSeedConstraints, beatsHints, factionsHints, regionHints, settlementHints,
+         THEME_CLIMATES, BAND_SETTLEMENTS, THREAT_EXPRESSIONS } from '../src/worldgen/blueprint.js';
 import { DUNGEON_OVERLAYS } from '../src/dungeon/generate.js';
 
 // Product Identity creatures named in docs/legal.md, plus the setting and
@@ -77,6 +78,31 @@ describe('content hygiene', () => {
   it('ships no product-identity names in the dungeon overlays', () => {
     const bad = offendersIn(DUNGEON_OVERLAYS, 'DUNGEON_OVERLAYS');
     assert.deepEqual(bad, [], `forbidden names in dungeon overlays:\n${bad.join('\n')}`);
+  });
+
+  it('ships no product-identity names in the scoped-blueprint tables', () => {
+    const bad = [
+      ...offendersIn(THEME_CLIMATES, 'THEME_CLIMATES'),
+      ...offendersIn(BAND_SETTLEMENTS, 'BAND_SETTLEMENTS'),
+      ...offendersIn(THREAT_EXPRESSIONS, 'THREAT_EXPRESSIONS'),
+    ];
+    assert.deepEqual(bad, [], `forbidden names in scoped tables:\n${bad.join('\n')}`);
+  });
+
+  it('renders no product-identity names through the scoped chain', () => {
+    const bad = [];
+    for (let seed = 0; seed < 100; seed++) {
+      const world = deriveBlueprint(null, seed, 'world');
+      const cont = deriveBlueprint(world, seed + 1, 'continent');
+      const prov = deriveBlueprint(cont, seed + 2, 'province');
+      const reg = deriveBlueprint(prov, seed + 3, 'region');
+      bad.push(...offendersIn({
+        slices: [cont, prov, reg],
+        region: regionHints(world, reg),
+        settlement: settlementHints(world, reg),
+      }, `seed ${seed}`));
+    }
+    assert.deepEqual(bad, [], `forbidden names in scoped output:\n${bad.slice(0, 10).join('\n')}`);
   });
 
   // The tables are only half the surface: a clean table can still compose into
