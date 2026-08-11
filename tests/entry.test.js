@@ -40,6 +40,7 @@ describe('public entry point', () => {
       ledger: ['makeId', 'makePatch', 'fold', 'compact'],
       worldgen: ['buildBlueprint', 'deriveBlueprint', 'THEME_CLIMATES', 'runPipeline', 'mintWorldSkeleton', 'WORLD_SEED_SCHEMA'],
       lore: ['mintLore', 'mintEras', 'mintCrownStub', 'CROWN_SCHEMA', 'LEGEND_SCHEMA'],
+      hydration: ['hydrateNode', 'HYDRATION_TEMPLATES', 'ensureLineage', 'lineageContext', 'gazetteerOf', 'discoverAncestors'],
       dungeon: ['generateDungeon', 'DUNGEON_OVERLAYS'],
       narrative: ['currentBeat', 'makeAct', 'adjustReputation', 'makeClock'],
       settlement: ['resolvePurchase', 'makeQuest', 'pushDialogue'],
