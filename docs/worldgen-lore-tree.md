@@ -177,6 +177,47 @@ that visits 12 regions across 3 provinces pays for exactly those 12
 regions. The tree adds depth without adding a single eager call; wider
 worlds cost more *disk*, not more *tokens*.
 
+### Hydration at the table — latency is a design input
+
+Triggers fire during play, so every hydration is a player waiting unless
+the design says otherwise. It says otherwise three ways:
+
+- **Promote on departure, not arrival.** The approach trigger fires when
+  travel *begins*; the travel FSM's segments are the latency budget. A
+  3-segment journey is three narration beats of cover for the region
+  call running behind them — by the arrival segment the destination is
+  usually canon. Arriving before it finishes narrates the approach
+  ("the walls resolve out of the haze") until the result lands.
+- **Stream what can stream.** `JsonFieldStreamer` exists so prose fields
+  render as they generate; structure validates when the document closes.
+- **Every template declares a procedural fallback** — what to serve when
+  the model is slow, offline, or keyless: names from the continent's
+  syllable culture, a dungeon from `generateDungeon`, an NPC assembled
+  from role + palette tables. Fallback content is written as patches
+  marked `provisional`; the next successful hydration supersedes it.
+  **Play never blocks on a model** — the same rule persistence already
+  follows when IndexedDB is missing: degrade, don't die.
+
+When triggers pile up, the queue drains in the trigger priority order
+(approach > foreshadow > rumor), and rumor stays bounded per session.
+
+### The story only points at real places
+
+The foreshadow trigger has a hidden precondition: the beat must
+reference a node that *exists*. Acts are generated from play — and an
+act generator that free-texts place names invents geography, which is
+the same canon fork the post-conditions catch at the content layer,
+arriving from the narrative side instead.
+
+- Act and beat generation consume a **gazetteer**: `knownMap` plus
+  rumoured stubs plus legend sites, as ids with one-line summaries. A
+  beat's `preferredLocation` must come from it — post-condition, coerced
+  to the nearest match on violation.
+- The deliberate exception: a beat may mint **one** new stub beyond the
+  frontier, attached to an existing province at detail 0. That is how
+  the story is allowed to create geography *on purpose* instead of by
+  accident, and the mint is a canon patch like any other.
+
 ## 6 · Hydration templates — how a node knows what to become
 
 Promotion (section 5) says *when* a node hydrates. It deliberately says
@@ -245,22 +286,76 @@ stays intact — and the default set's strings go through the
 host adding `site:shipwreck`) is a registry entry, not a fork of the
 pipeline.
 
-## 7 · Pipeline and persistence wiring
+## 7 · Canon coherence — late content must agree with early content
+
+Lazy filling's hard problem is not generating content late; it is that
+late content must not contradict what two sessions ago made canon.
+Consistency has two directions, and the plan so far only handled one.
+
+**Vertical** (ancestor → descendant) is `lineageContext` + `consumes`:
+done. **Horizontal** (sibling ↔ sibling, neighbour ↔ neighbour) is not
+free, and `adjacentHints` is where it bites: a hydrated region's hints
+are *promises about neighbours that don't exist yet*. Three rules make
+them binding:
+
+- **Hints become commitments.** At hydration commit, each adjacent hint
+  is recorded as a fact patch on the target stub (`hintedBy`, with the
+  hint text and source node). When that stub later hydrates, its
+  template's `consumes` includes inbound commitments — the neighbour
+  that promised "smoke over the eastern ridge" gets a region that has
+  something burning.
+- **Neighbour digests travel too.** Hydrating a node includes the
+  digests of already-hydrated *direct* neighbours (bounded to one edge —
+  a few lines each), so borders agree on the war, the river, and the
+  weather without paying for the whole map.
+- **Earlier canon wins.** New content is generated under existing
+  patches as constraints; where output still contradicts something
+  checkable (an id, an era, a name, a committed hint), the *new* content
+  is repaired or coerced — existing canon is never rewritten to
+  accommodate it. The ledger is append-only for the same reason `main`
+  is.
+
+**Failure is a path, not an exception.** The post-conditions in section
+6 say what must hold; this is what happens when it doesn't:
+
+1. *Shape* failures → schema validation + `repairJson` (exists today).
+2. *Reference* failures → one semantic repair retry: re-ask with the
+   violations enumerated ("these ids do not exist: …; these facts are
+   already canon: …").
+3. Still failing → a **deterministic coercion ladder** per reference
+   class: a dangling exit mints its missing stub; an unknown
+   `factionId` drops to `null`; a wrong era snaps to the nearest era; a
+   missing legend hook is attached procedurally from the legend's
+   `hooks[]`. Logged via `onProgress`, never thrown at the player.
+4. **Commit is atomic.** Pipeline results are staging; post-conditions
+   and coercion run on the staged set; the ledger write lands all of a
+   hydration's patches or none of them. A half-hydrated settlement is a
+   retry (whose completed layers the pipeline's checkpoints already
+   preserve), never canon.
+
+**Regeneration is supersession.** Rerolling a bad settlement writes
+superseding patches — compacted later by the ledger's `compact` — and
+never mutates or deletes, so a replayed campaign passes through the bad
+roll the same way the timeline did.
+
+## 8 · Pipeline and persistence wiring
 
 - **`hydrateNode(geo, nodeId, { config, templates })`** — look up the
   node's template, build the layer list for the target detail, call
-  `runPipeline` with the template's `consumes` list resolved through
-  `lineageContext` in `ctx`, run post-conditions, mint the declared
-  stubs, return results + the promoted geography. Checkpoint/resume
-  comes free from the pipeline's existing `onCheckpoint` /
-  `initialResults`.
+  `runPipeline` with the template's `consumes` list (plus inbound
+  commitments and direct-neighbour digests, section 7) resolved through
+  `lineageContext` in `ctx`, run post-conditions and the coercion
+  ladder, then commit atomically: mint the declared stubs, record the
+  new node's own adjacent hints as commitments, write the canon patches,
+  return results + the promoted geography. Checkpoint/resume comes free
+  from the pipeline's existing `onCheckpoint` / `initialResults`.
 - **Canon lives in the ledger.** Hydration output is written as patches
   (`kind: 'canon'`, `source: 'worldgen'`) over the base world —
   `ledger/patch.js` (base ⊕ patches ⊕ views, conflict detection,
   compaction) was built for exactly this shape. Play writes are patches
   too; `mechanicalPathsOf` already separates what the kernel owns.
 
-## 8 · Pre-generated worlds — cartridges and MCP playback
+## 9 · Pre-generated worlds — cartridges and MCP playback
 
 The ledger split above is what makes shared worlds nearly free:
 
@@ -288,11 +383,16 @@ The ledger split above is what makes shared worlds nearly free:
     campaign — same story the kernel's `Replay` tells for dice, one
     level up. Spectating, post-mortems, and "resume anywhere" all fall
     out of one design decision.
+- **A cartridge pins its schema version.** Mounting an old cartridge in
+  a newer client runs the envelope's migration runner (exists) — but the
+  migration output lands as session-local patches over the untouched
+  artifact, never as a rewrite of it. The cartridge stays immutable
+  even across format changes; only its overlay evolves.
 - Cartridges do **not** ship in the npm tarball (they're data, and they
   would swamp the 69 kB package); a catalog repo or GitHub release
   assets carry them.
 
-## 9 · Phases
+## 10 · Phases
 
 Each phase is one branch → PR → merge, tests green, in this order —
 every phase is independently shippable and the ones after C are
@@ -304,8 +404,11 @@ parallel-friendly:
 - **B · Lore entities** — crown/legend/era schemas + genesis stubs +
   `legal.test.js` coverage of every new table. (minor)
 - **C · Hydration** — sites as nodes, the template registry with
-  consumes/mints/post-conditions, `lineageContext`, `hydrateNode`,
-  promotion triggers, ledger-canon wiring. (minor)
+  consumes/mints/post-conditions and procedural fallbacks,
+  `lineageContext`, `hydrateNode` with the coercion ladder and atomic
+  commit, hint-commitments + neighbour digests, promotion triggers
+  (including the gazetteer constraint on beats), ledger-canon wiring.
+  (minor)
 - **D · Cartridges** — bake script, envelope format, catalog layout.
   (minor)
 - **E · MCP surface** — resources + tools + playback, in
@@ -314,7 +417,13 @@ parallel-friendly:
 Test strategy stays the house style: every new module is pure and
 injected, so `node --test` covers it without a network; the entry-point
 suite pins the new exports; the legal sweep runs over every new table
-and every rendered scoped prompt.
+(fallback tables included) and every rendered scoped prompt. The
+coherence machinery is the most testable part of the design precisely
+because it never needs a model: post-conditions, the coercion ladder,
+hint-commitments, and atomic commit all run against fixture output — a
+"contradiction fixture" (a staged region that violates a committed
+hint, a dangling exit, a wrong era) must come out repaired, coerced, or
+rejected, deterministically.
 
 ---
 
