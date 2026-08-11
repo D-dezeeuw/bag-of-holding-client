@@ -43,6 +43,7 @@ describe('public entry point', () => {
       hydration: ['hydrateNode', 'HYDRATION_TEMPLATES', 'ensureLineage', 'lineageContext', 'gazetteerOf', 'discoverAncestors'],
       cartridge: ['bakeCartridge', 'mountCartridge', 'catalogEntry', 'CARTRIDGE_VERSION'],
       dungeon: ['generateDungeon', 'DUNGEON_OVERLAYS'],
+      layout: ['generateLayout', 'settlementLayout', 'cityLayout', 'bindSettlement', 'SETTLEMENT_SIZES'],
       narrative: ['currentBeat', 'makeAct', 'adjustReputation', 'makeClock'],
       settlement: ['resolvePurchase', 'makeQuest', 'pushDialogue'],
       travel: ['beginTravel', 'stepTravel', 'runTravel', 'planJourney', 'TRAVEL_MODES', 'legTravelOptions', 'applyTravelClocks'],

@@ -84,6 +84,10 @@ export {
 // ── Dungeon ────────────────────────────────────────────────────────────────────
 export { generateDungeon, DUNGEON_OVERLAYS, DEFAULT_SIZE as DEFAULT_DUNGEON_SIZE } from './src/dungeon/generate.js';
 
+// ── Layout (shared spatial core + settlement space) ───────────────────────────
+export { generateLayout, placeOnGrid, attachBranch, dirBetween, deriveAdjacency } from './src/layout/engine.js';
+export { settlementLayout, cityLayout, bindSettlement, SETTLEMENT_SIZES, ROLE_BUILDINGS } from './src/layout/settlement.js';
+
 // ── Narrative (story beats + faction reputation) ─────────────────────────────────
 export {
   isBeatDone, isBeatEligible, nextEligibleBeats, currentBeat,
