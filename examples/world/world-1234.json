@@ -1,31 +1,98 @@
 {
   "seed": 1234,
-  "generatedAt": "2026-08-11T14:05:06.869Z",
+  "generatedAt": "2026-08-11T14:35:58.887Z",
   "hydratedByModel": true,
   "worldSeed": {
-    "provisional": false,
-    "name": "The Hollow Gloom",
+    "provisional": true,
+    "name": "The Dragon Age",
     "tone": "grimdark",
-    "creation": "A decaying subterranean expanse where the sun is a myth and the air tastes of damp earth and ancient rot.",
-    "gods": [
-      {
-        "name": "Vorgath the Banner-Bearer",
-        "domain": "war"
-      },
-      {
-        "name": "Glyph-Weaver Xylos",
-        "domain": "arcana"
-      },
-      {
-        "name": "Kaelith the Unforgiving",
-        "domain": "vengeance"
-      }
-    ],
+    "creation": "A world newly dreamed; its myths are not yet told.",
+    "gods": [],
     "redThread": {
-      "premise": "An omen of shifting shadows leads to the discovery of a frozen tomb, where a betrayal by a trusted ranger reveals a void entity's plan to consume the cavern's lifeblood, forcing a sacrifice that leads to a pyrrhic victory.",
-      "hook": "A strange, violet frost begins creeping across the mushroom stalks of the fungal farms, defying the warmth of the geothermal vents."
-    },
-    "digest": "In the"
+      "premise": "void entity",
+      "hook": "The threat gathers, unseen."
+    }
+  },
+  "redThread": {
+    "provisional": true,
+    "beats": [
+      {
+        "id": "beat-0",
+        "dramaticPurpose": "Omen — void entity closes in.",
+        "targetPlaytimeMinutes": 45,
+        "prerequisites": [],
+        "setRequiredFlags": [
+          "beat-0-done"
+        ],
+        "preferredLocation": null,
+        "requiredArchetypes": [],
+        "successors": [
+          "beat-1"
+        ]
+      },
+      {
+        "id": "beat-1",
+        "dramaticPurpose": "Discovery — void entity closes in.",
+        "targetPlaytimeMinutes": 45,
+        "prerequisites": [
+          "beat-0"
+        ],
+        "setRequiredFlags": [
+          "beat-1-done"
+        ],
+        "preferredLocation": null,
+        "requiredArchetypes": [],
+        "successors": [
+          "beat-2"
+        ]
+      },
+      {
+        "id": "beat-2",
+        "dramaticPurpose": "Betrayal — void entity closes in.",
+        "targetPlaytimeMinutes": 45,
+        "prerequisites": [
+          "beat-1"
+        ],
+        "setRequiredFlags": [
+          "beat-2-done"
+        ],
+        "preferredLocation": null,
+        "requiredArchetypes": [],
+        "successors": [
+          "beat-3"
+        ]
+      },
+      {
+        "id": "beat-3",
+        "dramaticPurpose": "Sacrifice — void entity closes in.",
+        "targetPlaytimeMinutes": 45,
+        "prerequisites": [
+          "beat-2"
+        ],
+        "setRequiredFlags": [
+          "beat-3-done"
+        ],
+        "preferredLocation": null,
+        "requiredArchetypes": [],
+        "successors": [
+          "beat-4"
+        ]
+      },
+      {
+        "id": "beat-4",
+        "dramaticPurpose": "Pyrrhic victory — void entity closes in.",
+        "targetPlaytimeMinutes": 45,
+        "prerequisites": [
+          "beat-3"
+        ],
+        "setRequiredFlags": [
+          "beat-4-done"
+        ],
+        "preferredLocation": null,
+        "requiredArchetypes": [],
+        "successors": []
+      }
+    ]
   },
   "cartridge": {
     "v": 1,
@@ -635,77 +702,71 @@
   },
   "hydrated": {
     "region": {
-      "id": "continent-0.province-0.region-0",
+      "id": "Ironvale",
       "provisional": false,
       "name": "Ironvale",
-      "description": "Nestled along the mist-laced cliffs of the Ironcoast, Ironvale is a quiet mill town where the rhythmic creak of waterwheels competes with the sigh of wind through ancient oaks. Though the land is fertile and the streams run clear, a pall hangs over the valley — not from neglect, but from memory. Locals speak in hushed tones of the Blackwood Manor, a once-grand estate now swallowed by ivy and shadow, its windows dark even at noon. No one admits to seeing the lights flicker in its upper halls… but everyone avoids the old path after sundown. The mill still turns, the baker still rises before dawn, but the air tastes of iron and old sorrow — as if the land itself remembers what the people refuse to name.",
-      "rumor": "They say the lord of Blackwood Manor didn’t die — he just stopped answering the door. And every harvest moon, the millwheel turns backward… for exactly thirteen chimes.",
+      "description": "Nestled where the iron-rich cliffs of Ironcoast meet the whispering pines of Velwyn’s western foothills, Ironvale is a place where the land remembers industry even as it tries to forget it. Once the beating heart of Velwyn’s metallurgical age — its waterwheels turning relentless hammers, its smokestacks staining the dawn — the town now slumbers under moss and rust. The great mill still stands, its timbers groaning with the weight of forgotten shifts, its waterwheel turned slow by neglect, yet still turning… as if compelled by something beneath the stones.",
+      "rumor": "They say if you listen at midnight beside the broken bellows, you can hear the rhythm of a shift that never ended — clanking, coughing, and the soft, wet whisper of something breathing in the dark where the ore veins run deep.",
       "adjacentHints": [
-        "The fog that clings to Ironvale’s hollows seems to thicken near the coast — where Ironcoast’s disputed borders bleed into the sea, and maps dissolve like salt in water.",
-        "Travelers who’ve passed through the northern passes whisper of standing stones that hum when touched — but no one in Ironvale will confirm they exist. They just hand you an extra loaf of bread and tell you to be home before the bells toll twelve."
+        "To the east, Ironcoast’s salt-worn docks groan under the weight of ships that never come — or worse, the ones that do, and never leave.",
+        "To the west, Velwyn’s ancient forests thicken, and the trees grow strange — their bark etched with symbols that match the mill’s forgotten gear patterns."
       ],
       "climate": "temperate",
       "settlementName": "Ironvale",
-      "dungeonName": "Blackwood Manor",
-      "digest": "Ironvale is a tempered mill town haunted not by monsters, but by silence — the kind that follows a truth too heavy to speak. Its people endure, but the manor watches, and the wheel remembers."
+      "dungeonName": "The Gears That Still Turn",
+      "digest": "A mill town haunted not by ghosts, but by the echo of labor that refused to die — where the machines remember what the people have tried to bury."
     },
     "settlement": {
-      "id": "settlement-ironvale",
+      "id": "continent-0.province-0.region-0.site-settlement",
       "provisional": false,
       "name": "Ironvale",
-      "description": "Ironvale is a tempered mill town haunted not by monsters, but by silence — the kind that follows a truth too heavy to speak. Its people endure, but the manor watches, and the wheel remembers.",
+      "description": "A mill town haunted not by ghosts, but by the echo of labor that refused to die — where the machines remember what the people have tried to bury.",
       "npcs": [],
       "exits": [],
-      "regionId": "region-ironvale",
-      "digest": "Ironvale is a tempered mill town haunted not by monsters, but by silence — the kind that follows a truth too heavy to speak. Its people endure, but the manor watches, and the wheel remembers."
+      "regionId": "continent-0.province-0.region-0",
+      "digest": "A mill town haunted not by ghosts, but by the echo of labor that refused to die — where the machines remember what the people have tried to bury."
     },
     "dungeonSite": {
       "id": "continent-0.province-0.region-0.site-dungeon",
-      "name": "Blackwood Manor",
+      "name": "The Gears That Still Turn",
       "theme": "haunted manor",
       "hook": null,
-      "digest": "Blackwood Manor — sealed, for now"
+      "digest": "The Gears That Still Turn — sealed, for now"
     },
     "legend": {
-      "provisional": false,
-      "title": "The Unseen Siege",
-      "kernelOfTruth": "No one speaks of the day the walls wept iron and the sky forgot its color.",
-      "payoff": "To uncover the truth is to become part of the silence that followed — and the next assault begins when you stop looking.",
+      "provisional": true,
+      "title": "The Drowned Orchard",
+      "kernelOfTruth": "more true than anyone repeating it believes",
+      "payoff": "what was buried is still there",
       "hooks": [
-        "A child draws the same symbol in ash every dawn — it matches the scars on the Bastion’s gate.",
-        "A mendicant priest claims he heard the siege’s final scream… and it was his own voice.",
-        "The March’s corpses still march — but only when no living eyes are upon them."
+        "ask about it in any harbor tavern"
       ],
       "id": "continent-0.legend-0",
       "era": "era-0",
-      "digest": "The Unseen Siege was not hidden — it was witnessed, and then unanimously unremembered. To speak of it invites the next wave. Those who remember are marked — not by scars, but by the absence of others’ gaze when they speak."
+      "sites": [
+        "continent-0.province-0"
+      ],
+      "kind": "legend",
+      "digest": "The Drowned Orchard — a story with a place attached"
     },
     "crown": {
-      "provisional": false,
+      "provisional": true,
       "name": "House Faldeep",
-      "title": "High Lords of the Vengeful",
-      "stanceOnThreat": "an open assault no one pretends not to see",
-      "factionRelations": [
-        {
-          "factionId": "trade_union",
-          "stance": "puppet"
-        }
-      ],
-      "digest": "A house driven by a singular, burning desire for retribution, viewing all diplomacy through the lens of blood debt.",
-      "id": "continent-0.province-0.crown.house_faldeep",
-      "legitimacy": "newly crowned"
+      "title": "Storm Warden",
+      "stanceOnThreat": "undeclared",
+      "factionRelations": [],
+      "id": "continent-0.province-0.crown",
+      "legitimacy": "newly crowned",
+      "kind": "crown",
+      "digest": "House Faldeep, Storm Warden — newly crowned"
     },
     "landfall": {
-      "id": "continent-1.province-1.landfall",
+      "id": "continent-1.province-1.landfall.site-landfall",
       "provisional": true,
+      "hook": "no jetty, no path, no footprints",
       "name": "Hollowmoor",
-      "hook": "something watched the descent and did not run",
-      "digest": "Hollowmoor — something watched the descent and did not run",
       "climate": "temperate",
-      "description": "Hollowmoor. something watched the descent and did not run",
-      "settlementName": "Hollowmoor Rest",
-      "dungeonName": "the Hollowmoor Deep",
-      "rumor": "something watched the descent and did not run"
+      "digest": "Hollowmoor — a landing where no road ever led"
     }
   },
   "dungeonCrawl": {
@@ -714,8 +775,8 @@
     "rooms": {
       "room-0": {
         "id": "room-0",
-        "name": "Chamber",
-        "description": "A bare stone room.",
+        "name": "The Threshold",
+        "description": "A weathered stone doorway, its lintel cracked but still standing. Old bloodstains have long since gone black.",
         "exits": [
           {
             "dir": "west",
@@ -732,8 +793,8 @@
       },
       "room-1": {
         "id": "room-1",
-        "name": "Chamber",
-        "description": "A bare stone room. Dust motes drift through pale light. A door creaks on its own.",
+        "name": "Sealed Cellar",
+        "description": "A weathered stone cellar, its door long since forced open by someone else. Dust motes drift through pale light. A door creaks on its own. The dust here has been disturbed recently.",
         "exits": [
           {
             "dir": "east",
@@ -750,8 +811,8 @@
       },
       "room-2": {
         "id": "room-2",
-        "name": "Chamber",
-        "description": "A bare stone room. Dust motes drift through pale light. A door creaks on its own.",
+        "name": "Long Hall",
+        "description": "A weathered stone hall, its far end lost to shadow. Dust motes drift through pale light. A door creaks on its own. A child's toy, of all things, lies half-buried in the grit.",
         "exits": [
           {
             "dir": "south",
@@ -761,7 +822,8 @@
           {
             "dir": "west",
             "roomId": "room-3",
-            "locked": false
+            "locked": true,
+            "keyId": "found-key"
           },
           {
             "dir": "north",
@@ -778,13 +840,14 @@
       },
       "room-3": {
         "id": "room-3",
-        "name": "Chamber",
-        "description": "A bare stone room. Dust motes drift through pale light. A door creaks on its own.",
+        "name": "Abandoned Quarters",
+        "description": "A bed frame, a washbasin, and a door that no longer locks. Dust motes drift through pale light. A door creaks on its own. A single unlit torch still sits in its bracket.",
         "exits": [
           {
             "dir": "east",
             "roomId": "room-2",
-            "locked": false
+            "locked": true,
+            "keyId": "found-key"
           },
           {
             "dir": "west",
@@ -796,8 +859,8 @@
       },
       "room-4": {
         "id": "room-4",
-        "name": "Chamber",
-        "description": "A bare stone room. Dust motes drift through pale light. A door creaks on its own.",
+        "name": "Sealed Cellar",
+        "description": "A weathered stone cellar, its door long since forced open by someone else. Dust motes drift through pale light. A door creaks on its own. A draft comes from somewhere that shouldn't have one.",
         "exits": [
           {
             "dir": "east",
@@ -807,30 +870,28 @@
           {
             "dir": "south",
             "roomId": "room-5",
-            "locked": true,
-            "keyId": "found-key"
+            "locked": false
           }
         ],
         "loot": []
       },
       "room-5": {
         "id": "room-5",
-        "name": "Chamber",
-        "description": "A bare stone room.",
+        "name": "The Vault",
+        "description": "A sealed chamber built to hold a locked iron strongbox and nothing else. Something has scratched marks into the doorframe, low to the ground.",
         "exits": [
           {
             "dir": "north",
             "roomId": "room-4",
-            "locked": true,
-            "keyId": "found-key"
+            "locked": false
           }
         ],
         "loot": [
           {
-            "name": "hoard of coin",
+            "name": "a locked iron strongbox",
             "id": "treasure",
             "type": "treasure",
-            "description": "A glittering pile of gold.",
+            "description": "Rust has fused the hinges nearly shut.",
             "value": 250,
             "taken": false
           }
@@ -838,8 +899,8 @@
       },
       "room-6": {
         "id": "room-6",
-        "name": "Chamber",
-        "description": "A bare stone room. Dust motes drift through pale light. A door creaks on its own.",
+        "name": "Old Storeroom",
+        "description": "Shelving lines the walls, mostly collapsed, mostly empty. Dust motes drift through pale light. A door creaks on its own. Old bloodstains have long since gone black.",
         "exits": [
           {
             "dir": "south",
@@ -849,18 +910,18 @@
         ],
         "loot": [
           {
-            "name": "iron key",
-            "desc": "A heavy iron key.",
+            "name": "a bone-carved key",
+            "desc": "Carved from something that was once alive.",
             "id": "found-key",
             "taken": false,
-            "description": "A heavy iron key."
+            "description": "Carved from something that was once alive."
           }
         ]
       },
       "room-7": {
         "id": "room-7",
-        "name": "Chamber",
-        "description": "A bare stone room. Dust motes drift through pale light. A door creaks on its own.",
+        "name": "Abandoned Quarters",
+        "description": "A bed frame, a washbasin, and a door that no longer locks. Dust motes drift through pale light. A door creaks on its own. A draft comes from somewhere that shouldn't have one.",
         "exits": [
           {
             "dir": "south",
@@ -873,14 +934,21 @@
             "locked": false
           }
         ],
-        "loot": []
+        "loot": [
+          {
+            "name": "a half-burned letter",
+            "id": "loot-7",
+            "description": "Too damaged to read more than a few words.",
+            "taken": false
+          }
+        ]
       }
     },
     "npcs": {
       "boss": {
         "id": "boss",
         "roomId": "room-5",
-        "name": "wight",
+        "name": "Wight",
         "creatureId": "wight",
         "cr": 4,
         "hp": 60,
@@ -888,13 +956,13 @@
         "conditions": [],
         "attitude": "hostile",
         "alive": true,
-        "intro": "wight appears, hostile.",
+        "intro": "Wight rises from the weathered stone dark, hostile.",
         "isBoss": true
       },
       "enemy-1": {
         "id": "enemy-1",
         "roomId": "room-6",
-        "name": "shadow",
+        "name": "Shadow",
         "creatureId": "shadow",
         "cr": 1,
         "hp": 11,
@@ -902,12 +970,12 @@
         "conditions": [],
         "attitude": "hostile",
         "alive": true,
-        "intro": "shadow appears, hostile."
+        "intro": "Shadow rises from the weathered stone dark, hostile."
       },
       "enemy-2": {
         "id": "enemy-2",
-        "roomId": "room-4",
-        "name": "specter",
+        "roomId": "room-3",
+        "name": "Specter",
         "creatureId": "specter",
         "cr": 1,
         "hp": 11,
@@ -915,7 +983,20 @@
         "conditions": [],
         "attitude": "hostile",
         "alive": true,
-        "intro": "specter appears, hostile."
+        "intro": "Specter rises from the weathered stone dark, hostile."
+      },
+      "enemy-3": {
+        "id": "enemy-3",
+        "roomId": "room-7",
+        "name": "Shadow",
+        "creatureId": "shadow",
+        "cr": 1,
+        "hp": 11,
+        "ac": 12,
+        "conditions": [],
+        "attitude": "hostile",
+        "alive": true,
+        "intro": "Shadow rises from the weathered stone dark, hostile."
       }
     }
   },

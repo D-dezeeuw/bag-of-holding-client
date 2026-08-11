@@ -522,7 +522,13 @@ export function mintLandfall(geo, provinceId, { via = 'air', hooks = null } = {}
   // Tie the landfall into the province's walkable frontier if regions exist.
   const sibling = childrenOf(out, provinceId).find(c => c.kind === 'region' && c.id !== id);
   if (sibling) out = connect(out, id, sibling.id, { direction: DIRECTIONS[0], days: randInt(1, 2, rng) });
-  return { geo: out, landfall: id };
+  // `landfall` is the region (where the wanderer stands); `site` is the
+  // site:landfall node hydrateNode's template registry actually matches —
+  // hydrate `site`, not `landfall`, for the arrival's hook/digest. A caller
+  // who hydrates the region id instead gets the *region* template (real
+  // shape, wrong content: description/rumor built from the same hook that
+  // the site's own digest would also use, reading as a duplicate).
+  return { geo: out, landfall: id, site: siteId };
 }
 
 // ─── The return recap (doc 18 §9) ────────────────────────────────────────────

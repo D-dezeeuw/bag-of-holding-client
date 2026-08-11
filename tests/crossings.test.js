@@ -13,7 +13,7 @@ import { routeBetween } from '../src/worldgen/geography.js';
 import { planJourney, legTravelOptions, applyTravelClocks } from '../src/travel/planner.js';
 import { TRAVEL_MODES } from '../src/travel/modes.js';
 import { beginTravel, runTravel } from '../src/travel/fsm.js';
-import { mintProvinceRegions, portAnchorOf, mintLandfall, whileYouWereGone, promoteObserved } from '../src/worldgen/hydrate.js';
+import { mintProvinceRegions, portAnchorOf, mintLandfall, whileYouWereGone, promoteObserved, hydrateNode } from '../src/worldgen/hydrate.js';
 import { deriveBlueprint, MENACE_TIERS, menaceHints } from '../src/worldgen/blueprint.js';
 import { makeClock } from '../src/narrative/clocks.js';
 import { makePatch } from '../src/ledger/patch.js';
@@ -119,6 +119,33 @@ describe('landfall', () => {
     assert.ok(a.geo.edges.some(e => e.from === a.landfall || e.to === a.landfall));
     // idempotent against the already-minted geo
     assert.equal(mintLandfall(a.geo, far).geo, a.geo);
+    // the site id is returned too, and it's the child, not the region itself
+    assert.equal(a.site, `${a.landfall}.site-landfall`);
+  });
+
+  // Regression: mintLandfall mints TWO nodes — the landfall region and its
+  // child site:landfall node — but only ever returned the region id. A
+  // caller who hydrates `.landfall` (the natural-looking field to reach for)
+  // gets the REGION template instead of site:landfall: a real, valid
+  // hydration, but the wrong shape and content — its digest and description
+  // are both built from the same hook text the site's own digest already
+  // carries, which is exactly how a book ended up printing "something
+  // watched the descent and did not run" twice in a row for one arrival.
+  it('.landfall resolves the region template; .site resolves site:landfall — never the same content', async () => {
+    const sk = mintWorldSkeleton(1234);
+    const far = sk.provinces.find(p => sk.geo.nodes[p].parent === 'continent-1');
+    const { geo, landfall, site } = mintLandfall(mintProvinceRegions(sk.geo, far).geo, far, { via: 'air' });
+
+    const regionRun = await hydrateNode(geo, landfall, { detail: 2, complete: null });
+    const siteRun = await hydrateNode(geo, site, { detail: 2, complete: null });
+
+    // Both hydrate successfully (this is not about one failing) — but to
+    // genuinely different templates, so a host that hydrates the wrong one
+    // doesn't get an error, just silently wrong content.
+    assert.ok(regionRun.ok && siteRun.ok);
+    assert.ok('description' in regionRun.result, 'region template shape');
+    assert.ok(!('description' in siteRun.result), 'site:landfall must not carry region fields');
+    assert.ok('hook' in siteRun.result && 'digest' in siteRun.result);
   });
 });
 

@@ -51,7 +51,7 @@ export { TONES, isTone } from './src/worldgen/tones.js';
 export {
   buildBlueprint, deriveBlueprint, blueprintContext, worldSeedConstraints,
   beatsHints, factionsHints, regionHints, settlementHints, menaceHints,
-  THEME_CLIMATES, BAND_SETTLEMENTS, THREAT_EXPRESSIONS, MENACE_TIERS,
+  THEME_CLIMATES, BAND_SETTLEMENTS, THREAT_EXPRESSIONS, MENACE_TIERS, MENACE_SIGNPOSTS,
 } from './src/worldgen/blueprint.js';
 export { runPipeline, ensureDigest, withRetry, PipelineError } from './src/worldgen/pipeline.js';
 export {
