@@ -25,9 +25,12 @@ export const CARTRIDGE_VERSION = 1;
 export const CARTRIDGE_MIGRATIONS = Object.freeze({});
 
 // Bake a world: skeleton + lore + the derived blueprint slices for every
-// continent and province. Pure and synchronous with no completer; pass
-// `complete` (the host LLM) to also hydrate continent/province outlines into
-// the bake — the "detail ≤ 1" cartridge that makes cold landings instant.
+// continent and province, with every continent/province minting its region
+// frontier along the way (via hydrateNode's normal fallback, regardless of
+// whether a model is available). Pass `complete` (the host LLM) to also
+// hydrate real prose into continent/province outlines — the "detail ≤ 1"
+// cartridge that makes cold landings instant — instead of each one staying
+// at its deterministic hook text.
 export async function bakeCartridge(seed, { complete = null, eraCount = null } = {}) {
   const sk = mintWorldSkeleton(seed);
   let geo = sk.geo;
@@ -44,23 +47,27 @@ export async function bakeCartridge(seed, { complete = null, eraCount = null } =
   }
 
   const outlines = {};
-  if (complete) {
-    for (const id of [...sk.continents, ...sk.provinces]) {
-      const out = await hydrateNode(geo, id, {
-        complete, detail: 1,
-        slice: slices[id], slices,
-        eras: lore.eras, legends: lore.legends,
-      });
-      if (!out.ok) continue;
-      // Keep the geo regardless of provisional status — a province's minted
-      // region stubs (template.mints === 'regions') must never be dropped
-      // just because its outline prompt came back empty and fell back. Only
-      // real model prose earns a slot in `outlines`: a cartridge's outline
-      // layer is specifically the baked LLM content, and callers already
-      // treat a missing outline as "not yet hydrated" via the detail ladder.
-      geo = out.geo;
-      if (!out.provisional) outlines[id] = out.result;
-    }
+  // Always run this loop, `complete` or not: hydrateNode(..., { complete: null
+  // }) already degrades to each template's procedural fallback on its own —
+  // that is the whole point of the fallback design — and province minting
+  // (template.mints === 'regions') has to happen either way, or a keyless
+  // bake leaves every province with no region to land a cold arrival in.
+  // Only whether `outlines` gets real prose depends on having a completer.
+  for (const id of [...sk.continents, ...sk.provinces]) {
+    const out = await hydrateNode(geo, id, {
+      complete, detail: 1,
+      slice: slices[id], slices,
+      eras: lore.eras, legends: lore.legends,
+    });
+    if (!out.ok) continue;
+    // Keep the geo regardless of provisional status — the region stubs a
+    // province mints must never be dropped just because its outline prompt
+    // came back empty and fell back. Only real model prose earns a slot in
+    // `outlines`: a cartridge's outline layer is specifically the frozen LLM
+    // layer, and callers already treat a missing outline as "not yet
+    // hydrated" via the detail ladder.
+    geo = out.geo;
+    if (!out.provisional) outlines[id] = out.result;
   }
 
   const data = {

@@ -70,6 +70,22 @@ describe('bakeCartridge', () => {
       assert.ok(regions.length >= 1, `${pId} has no minted regions`);
     }
   });
+
+  // Regression: the keyless case — no completer AT ALL, not just one that
+  // resolves empty. bakeCartridge used to skip its whole hydrate/mint loop
+  // whenever `complete` was falsy, so a host with no model configured (the
+  // common case: BYOK, no key yet) baked a world where every province had
+  // no region frontier — hydrateNode handles `complete: null` fine on its
+  // own; the bug was bakeCartridge never calling it in the first place.
+  it('mints every province’s regions with no completer at all', async () => {
+    const cart = await bakeCartridge(7); // complete defaults to null
+    const d = cart.data;
+    assert.deepEqual(Object.keys(d.outlines), []);
+    for (const pId of d.provinces) {
+      const regions = childrenOf(d.geo, pId).filter(n => n.kind === 'region');
+      assert.ok(regions.length >= 1, `${pId} has no minted regions`);
+    }
+  });
 });
 
 describe('mountCartridge', () => {
