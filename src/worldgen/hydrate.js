@@ -92,6 +92,20 @@ export const HYDRATION_TEMPLATES = Object.freeze({
       digest: `${node.name} — sealed, for now`,
     }),
   },
+  'site:landfall': {
+    // Where the wanderer came down: no jetty, no road. Procedural — the
+    // arrival IS the fallback (portals and flight give zero latency budget);
+    // the next real hydration supersedes it.
+    full: { schema: null, tier: 'tiny', retries: 0 },
+    consumes: ['climate', 'threatExpression'],
+    method: 'procedural',
+    fallback: (node, ctx) => ({
+      id: node.id, name: node.name,
+      climate: ctx?.slice?.climate ?? null,
+      hook: node.hook ?? 'no jetty, no path, no footprints',
+      digest: `${node.name} — a landing where no road ever led`,
+    }),
+  },
   'site:landmark': {
     full: { schema: null, tier: 'tiny', retries: 0 },
     consumes: ['climate'],
@@ -442,4 +456,74 @@ export function promoteObserved(targetId, turn = 0) {
     turn, target: targetId, scope: 'regional', kind: 'canon',
     path: 'observed', to: true, because: 'worldgen:observed', source: 'worldgen',
   });
+}
+
+// ─── Landfall (doc 18 §9, phase F) ───────────────────────────────────────────
+
+// A port province's deterministic sea anchor: the harbor region minted by
+// mintProvinceRegions. Regions get minted here if the province was never
+// hydrated — arriving by sea IS an approach.
+export function portAnchorOf(geo, provinceId) {
+  const prov = geo.nodes[provinceId];
+  if (!prov) return { geo, anchor: null };
+  let out = geo;
+  let regions = childrenOf(out, provinceId).filter(c => c.kind === 'region');
+  if (!regions.length) {
+    out = mintProvinceRegions(out, provinceId).geo;
+    regions = childrenOf(out, provinceId).filter(c => c.kind === 'region');
+  }
+  const anchor = regions.find(r => r.harbor) ?? regions[0] ?? null;
+  return { geo: out, anchor: anchor?.id ?? null };
+}
+
+// Air and portals land anywhere: mint a landfall region on the chosen
+// province — no jetty, no road — seeded from the province so replay and
+// shared cartridges agree on where the wanderer came down. Idempotent.
+export function mintLandfall(geo, provinceId, { via = 'air', hooks = null } = {}) {
+  const prov = geo.nodes[provinceId];
+  if (!prov) return { geo, landfall: null };
+  const id = `${provinceId}.landfall`;
+  if (geo.nodes[id]) return { geo, landfall: id };
+  const rng = mulberry32(((prov.seed ?? 1) + 404) >>> 0);
+  const culture = geo.nodes[prov.parent]?.nameParts ?? {
+    prefixes: SYLLABLES.provincePrefixes, suffixes: SYLLABLES.provinceSuffixes,
+  };
+  const hookTable = hooks ?? [
+    'no jetty, no path, no footprints',
+    'the tide line is strewn with unfamiliar shells',
+    'something watched the descent and did not run',
+    'an old fire ring, cold for years',
+  ];
+  let out = addNode(geo, {
+    id, name: `${pick(culture.prefixes, rng)}${pick(culture.suffixes, rng)}`,
+    kind: 'region', seed: randInt(1, 2 ** 30, rng),
+    hook: pick(hookTable, rng), stub: true, detail: 0, parent: provinceId,
+  });
+  out = { ...out, nodes: { ...out.nodes, [id]: { ...out.nodes[id], landfall: via } } };
+  const siteId = `${id}.site-landfall`;
+  out = addNode(out, {
+    id: siteId, name: 'the landing', kind: 'site',
+    seed: randInt(1, 2 ** 30, rng), stub: true, detail: 0, parent: id,
+  });
+  out = { ...out, nodes: { ...out.nodes, [siteId]: { ...out.nodes[siteId], siteType: 'landfall' } } };
+  // Tie the landfall into the province's walkable frontier if regions exist.
+  const sibling = childrenOf(out, provinceId).find(c => c.kind === 'region' && c.id !== id);
+  if (sibling) out = connect(out, id, sibling.id, { direction: DIRECTIONS[0], days: randInt(1, 2, rng) });
+  return { geo: out, landfall: id };
+}
+
+// ─── The return recap (doc 18 §9) ────────────────────────────────────────────
+
+// "While you were gone": clocks that fired and provisional content that was
+// superseded since the party left. Pure digest over existing state — the
+// host narrates it as news on the road home.
+export function whileYouWereGone(clocks, ledger, { sinceTurn = 0 } = {}) {
+  const firedClocks = (clocks ?? []).filter(c => c.fired);
+  const provisionalTargets = new Set(
+    (ledger ?? []).filter(p => p.because === 'worldgen:provisional').map(p => p.target));
+  const superseded = (ledger ?? []).filter(p =>
+    p.because === 'worldgen' && p.path === 'content' &&
+    p.turn >= sinceTurn && provisionalTargets.has(p.target))
+    .map(p => ({ target: p.target, turn: p.turn }));
+  return { firedClocks, superseded };
 }

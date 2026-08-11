@@ -25,6 +25,8 @@ import { DEFAULT_TABLES, buildBlueprint, deriveBlueprint, blueprintContext,
 import { DUNGEON_OVERLAYS } from '../src/dungeon/generate.js';
 import { mintLore, ERA_NAMES, LEGEND_TITLE_A, LEGEND_TITLE_B, CROWN_TITLES, LEGITIMACIES } from '../src/worldgen/lore.js';
 import { mintWorldSkeleton } from '../src/worldgen/skeleton.js';
+import { TRAVEL_MODES, LANDFALL_HOOKS } from '../src/travel/modes.js';
+import { MENACE_TIERS, menaceHints } from '../src/worldgen/blueprint.js';
 
 // Product Identity creatures named in docs/legal.md, plus the setting and
 // character names it rules out, plus the deity roster this table used to carry.
@@ -89,6 +91,16 @@ describe('content hygiene', () => {
       ...offendersIn(THREAT_EXPRESSIONS, 'THREAT_EXPRESSIONS'),
     ];
     assert.deepEqual(bad, [], `forbidden names in scoped tables:\n${bad.join('\n')}`);
+  });
+
+  it('ships no product-identity names in the travel/menace tables', () => {
+    const bad = [
+      ...offendersIn(TRAVEL_MODES, 'TRAVEL_MODES'),
+      ...offendersIn(LANDFALL_HOOKS, 'LANDFALL_HOOKS'),
+      ...offendersIn(MENACE_TIERS, 'MENACE_TIERS'),
+      ...MENACE_TIERS.flatMap(m => offendersIn(menaceHints({ menace: m }), `menaceHints(${m})`)),
+    ];
+    assert.deepEqual(bad, [], `forbidden names in travel tables:\n${bad.join('\n')}`);
   });
 
   it('ships no product-identity names in the lore tables or minted lore', () => {

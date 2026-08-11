@@ -163,7 +163,13 @@ export function knownMap(geo) {
 
 // Shortest path in days between two nodes (Dijkstra over a tiny graph), or null
 // when unreachable. Travel time is what makes distance mean something.
-export function routeBetween(geo, from, to) {
+//
+// `traversable` filters edges by capability (doc 18 §9): a walking party
+// cannot take a 'sea' lane without a ship. Default: everything, preserving
+// every existing caller. It deliberately ignores `discovered` — the route
+// exists whether the player has heard of it or not; knowing about it is the
+// gazetteer's business, not the pathfinder's.
+export function routeBetween(geo, from, to, { traversable = null } = {}) {
   if (from === to) return { path: [from], days: 0 };
   const dist = { [from]: 0 };
   const prev = {};
@@ -175,6 +181,7 @@ export function routeBetween(geo, from, to) {
     queue.delete(best);
     if (best === to) break;
     for (const n of neighbours(geo, best)) {
+      if (traversable && !traversable(n)) continue;
       const alt = dist[best] + (n.days ?? 1);
       if (dist[n.id] == null || alt < dist[n.id]) { dist[n.id] = alt; prev[n.id] = best; }
     }
