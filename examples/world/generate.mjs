@@ -46,6 +46,20 @@ const complete = key
 const log = (msg) => console.log(`  ${msg}`);
 console.log(`Generating world seed=${SEED} ${key ? '(model-hydrated)' : '(procedural fallback only — set OPENROUTER_API_KEY for prose)'}`);
 
+// hydrateNode's post-conditions check REFERENCES (does this id exist?), not
+// completeness — a model that drops a required field despite the schema's
+// `strict: true` hint (this free tier does, occasionally) sails through with
+// that field simply undefined. Any real host needs this same defence; merge
+// the result over a known-good fallback so a missing field reads as
+// deterministic prose instead of "undefined" in the book.
+const withDefaults = (result, fallback) => {
+  const out = { ...fallback };
+  for (const [k, v] of Object.entries(result ?? {})) {
+    if (v !== undefined && v !== null && !(Array.isArray(v) && v.length === 0)) out[k] = v;
+  }
+  return out;
+};
+
 // ── 1. World seed (the top-level premise a title page needs) ────────────────
 // Not part of the lore-tree pipeline itself (that starts from a blueprint,
 // never names the world) — this is the older top-level generator the README
@@ -91,7 +105,11 @@ const regionRun = await hydrateNode(geo, homeRegionId, {
   eras: lore.eras, legends: lore.legends,
 });
 geo = regionRun.geo;
-log(`region hydrated: ${regionRun.result.name}${regionRun.provisional ? ' (provisional)' : ''}`);
+const regionResult = withDefaults(regionRun.result, {
+  name: geo.nodes[homeRegionId].name, description: geo.nodes[homeRegionId].hook ?? '',
+  rumor: '', adjacentHints: [],
+});
+log(`region hydrated: ${regionResult.name}${regionRun.provisional ? ' (provisional)' : ''}`);
 
 const settlementId = regionRun.minted.find(id => geo.nodes[id].siteType === 'settlement');
 const dungeonId = regionRun.minted.find(id => geo.nodes[id].siteType === 'dungeon');
@@ -101,7 +119,10 @@ const settlementRun = await hydrateNode(geo, settlementId, {
   eras: lore.eras, legends: lore.legends,
 });
 geo = settlementRun.geo;
-log(`settlement hydrated: ${settlementRun.result.name}${settlementRun.provisional ? ' (provisional)' : ''}`);
+const settlementResult = withDefaults(settlementRun.result, {
+  name: geo.nodes[settlementId].name, description: '', npcs: [], exits: [],
+});
+log(`settlement hydrated: ${settlementResult.name}${settlementRun.provisional ? ' (provisional)' : ''}`);
 
 // site:dungeon is procedural-only (no schema) — always the deterministic
 // fallback; the room-by-room crawl comes from generateDungeon, next.
@@ -123,19 +144,31 @@ const legendRun = await hydrateNode(geo, legendStub.id, {
   entity: { ...legendStub, kind: 'legend' }, complete, turn: 1,
   slice: { ...slices.world, ...continentSlice }, eras: lore.eras, legends: lore.legends,
 });
-log(`legend hydrated: "${legendRun.result.title}"`);
+const legendResult = withDefaults(legendRun.result, {
+  title: legendStub.title, kernelOfTruth: 'more true than anyone repeating it believes',
+  payoff: 'what was buried is still there',
+  hooks: legendStub.hooks?.length ? legendStub.hooks : ['ask about it in any harbor tavern'],
+});
+log(`legend hydrated: "${legendResult.title}"`);
 
 const crownStub = lore.crowns.find(c => c.id === `${homePort}.crown`);
 const crownRun = await hydrateNode(geo, crownStub.id, {
   entity: { ...crownStub, kind: 'crown' }, complete, turn: 1, slice: provinceSlice,
 });
-log(`crown hydrated: ${crownRun.result.name}, ${crownRun.result.title}`);
+const crownResult = withDefaults(crownRun.result, {
+  name: crownStub.name, title: crownStub.title, stanceOnThreat: 'undeclared', factionRelations: [],
+});
+log(`crown hydrated: ${crownResult.name}, ${crownResult.title}`);
 
 // ── 5. Plan and sample a crossing to the far continent (phase F) ────────────
+// Sea lanes connect PROVINCES, not regions — a region only has edges to its
+// siblings within the same province (mintProvinceRegions), so routing must
+// happen at the province level; portAnchorOf's harbor region is where the
+// book says the ship actually ties up, not a routable waypoint.
 const farProvince = provinces.find(p => geo.nodes[p].parent === continents[1]);
 const { geo: farGeo, anchor: farAnchor } = portAnchorOf(geo, farProvince);
 geo = farGeo;
-const plan = planJourney(geo, homeRegionId, farAnchor, { capabilities: { sea: true } });
+const plan = planJourney(geo, homePort, farProvince, { capabilities: { sea: true } });
 log(`crossing planned: ${plan.totalDays} day(s), ${plan.legs.length} leg(s), ${plan.totalSegments} segment(s)`);
 const crossingLog = plan.legs.map((leg, i) => ({
   leg, events: runTravel(leg.to, mulberry32(SEED + i), legTravelOptions(leg)).events,
@@ -148,11 +181,15 @@ const landingProvince = landingCandidates[0] ?? farProvince;
 const { geo: landedGeo, landfall } = mintLandfall(geo, landingProvince, { via: 'air' });
 geo = landedGeo;
 const landfallRun = await hydrateNode(geo, landfall, { detail: 2, turn: 1, slice: slices[landingProvince] });
-log(`landfall minted: ${landfallRun.result.name} — "${landfallRun.result.hook}"`);
+const landfallResult = withDefaults(landfallRun.result, {
+  name: geo.nodes[landfall].name, hook: geo.nodes[landfall].hook ?? 'no jetty, no path, no footprints',
+  digest: `${geo.nodes[landfall].name} — a landing where no road ever led`,
+});
+log(`landfall minted: ${landfallResult.name} — "${landfallResult.hook}"`);
 
 // ── 6. Lay out the settlement's streets and bind its cast (phase G) ─────────
 const layout = settlementLayout(geo.nodes[settlementId].seed, { kind: 'town', buildings: regionSlice.buildingTypes });
-const bindings = bindSettlement(layout, settlementRun.result);
+const bindings = bindSettlement(layout, settlementResult);
 log(`settlement laid out: ${layout.plots.length} plots, ${bindings.npcBindings.length} NPC(s) placed`);
 
 // ── Assemble the example JSON ────────────────────────────────────────────────
@@ -163,15 +200,15 @@ const output = {
   worldSeed: { provisional: worldSeedProvisional, ...worldSeed },
   cartridge: { v: cartridge.v, digest: cartridge.c, continents, provinces, lore, slices, outlines: cartridge.data.outlines },
   hydrated: {
-    region: { id: homeRegionId, provisional: regionRun.provisional, ...regionRun.result },
-    settlement: { id: settlementId, provisional: settlementRun.provisional, ...settlementRun.result },
+    region: { id: homeRegionId, provisional: regionRun.provisional, ...regionResult },
+    settlement: { id: settlementId, provisional: settlementRun.provisional, ...settlementResult },
     dungeonSite: { id: dungeonId, ...dungeonSiteRun.result },
-    legend: { provisional: legendRun.provisional, ...legendRun.result },
-    crown: { provisional: crownRun.provisional, ...crownRun.result },
-    landfall: { id: landfall, provisional: landfallRun.provisional, ...landfallRun.result },
+    legend: { provisional: legendRun.provisional, ...legendResult },
+    crown: { provisional: crownRun.provisional, ...crownResult },
+    landfall: { id: landfall, provisional: landfallRun.provisional, ...landfallResult },
   },
   dungeonCrawl,
-  crossing: { plan, log: crossingLog },
+  crossing: { plan, log: crossingLog, harborRegion: farAnchor },
   layout: { settlement: layout, bindings },
 };
 
@@ -201,8 +238,11 @@ const fmtSettlement = (settlement, layout, bindings) => {
   return lines.join('\n');
 };
 
-const fmtCrossing = (plan, crossingLog) => {
-  const lines = [`${plan.totalDays} day(s) by ${plan.mode}, in ${plan.legs.length} leg(s).`, ''];
+const fmtCrossing = (plan, crossingLog, harborName) => {
+  const lines = [
+    `${plan.totalDays} day(s) by ${plan.mode}, in ${plan.legs.length} leg(s), bound for the harbor at ${harborName}.`,
+    '',
+  ];
   for (const { leg, events } of crossingLog) {
     lines.push(`${leg.mode} leg — ${leg.from} to ${leg.to}: ${leg.days} day(s), ${leg.segments} segment(s).`);
     for (const e of events) {
@@ -232,13 +272,13 @@ const chapters = [
     heading: geo.nodes[continents[0]].name,
     text: [continentOutline?.digest ?? geo.nodes[continents[0]].hook, menaceHints(continentSlice).trim()].filter(Boolean).join('\n\n'),
   },
-  { heading: regionRun.result.name, text: [regionRun.result.description, regionRun.result.rumor].filter(Boolean).join('\n\n') },
-  { heading: settlementRun.result.name, text: fmtSettlement(settlementRun.result, layout, bindings) },
-  { heading: `Beneath ${regionRun.result.name}`, text: fmtDungeon(dungeonCrawl, regionSlice.dungeonTheme) },
-  { heading: legendRun.result.title, text: fmtLegend(legendRun.result) },
-  { heading: `${crownRun.result.name}, ${crownRun.result.title}`, text: fmtCrown(crownRun.result) },
-  { heading: 'The Crossing', text: fmtCrossing(plan, crossingLog) },
-  { heading: `Landfall: ${landfallRun.result.name}`, text: [landfallRun.result.hook, landfallRun.result.digest].filter(Boolean).join('\n\n') },
+  { heading: regionResult.name, text: [regionResult.description, regionResult.rumor].filter(Boolean).join('\n\n') },
+  { heading: settlementResult.name, text: fmtSettlement(settlementResult, layout, bindings) },
+  { heading: `Beneath ${regionResult.name}`, text: fmtDungeon(dungeonCrawl, regionSlice.dungeonTheme) },
+  { heading: legendResult.title, text: fmtLegend(legendResult) },
+  { heading: `${crownResult.name}, ${crownResult.title}`, text: fmtCrown(crownResult) },
+  { heading: 'The Crossing', text: fmtCrossing(plan, crossingLog, geo.nodes[farAnchor]?.name ?? geo.nodes[farProvince].name) },
+  { heading: `Landfall: ${landfallResult.name}`, text: [landfallResult.hook, landfallResult.digest].filter(Boolean).join('\n\n') },
 ];
 
 // ── Export: the data, and a book read from it ────────────────────────────────
