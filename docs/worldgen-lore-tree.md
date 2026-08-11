@@ -129,7 +129,11 @@ places.
   dungeon is *where a legend is buried* rather than a theme with rooms.
   Legends feed the acts engine directly — `plantSetup` at first rumor,
   `paySetup` when the vault opens — which is exactly the payoff-ledger
-  machinery `narrative/acts.js` already has.
+  machinery `narrative/acts.js` already has. One binding rule at
+  genesis, the **explorer's dividend**: each continent's first port
+  province carries at least one legend site — so whatever shore a
+  wanderer lands on, the acts engine has something real to bind to
+  (section 9).
 - **Eras**: 3–5 named epochs minted at world genesis, one line each.
   Every legend, ruin, and landmark carries an `era` tag. This is what
   makes "its roads are older than its towns" a checkable fact instead of
@@ -157,7 +161,10 @@ The existing ladder holds; sites and interiors join it:
 
 **Promotion triggers**, in priority order:
 
-1. **Approach** (travel FSM): destination → 2, its neighbours → 1.
+1. **Approach** (travel FSM): per leg — each leg's destination → 2 at
+   leg start, its neighbours → 1; and at journey start, the final
+   destination's *ancestors* → 1, so a multi-leg crossing outlines the
+   far shore while the first leg is still underway (section 9).
 2. **Foreshadow**: a beat or legend that references a node promotes it
    to 1 immediately — the place the story points at must have an outline
    *before* the model narrates pointing at it, or the narration invents
@@ -355,7 +362,175 @@ roll the same way the timeline did.
   compaction) was built for exactly this shape. Play writes are patches
   too; `mechanicalPathsOf` already separates what the kernel owns.
 
-## 9 · Pre-generated worlds — cartridges and MCP playback
+## 9 · Crossings — no walls, only distance
+
+Players are creative and leave the roads. Someone will board a ship —
+or grow wings — and cross to another continent in search of something
+new. A flexible GM never hard-stops that player: they improvise thin
+and commit later, price the detour diegetically (a ship, six days,
+storms), let the abandoned plot keep moving, and telegraph danger
+instead of scaling the world. We can hold ourselves to the same
+standard with one advantage a GM doesn't have: **prep is free.** The
+far continent has existed since genesis — name, hook, climate bands,
+ports, a legend site. There is no off-the-map; there is only
+not-yet-hydrated.
+
+**The principle: refusal is never mechanical.** Everything the
+skeleton minted is reachable from session one; every cost is inside
+the fiction. And the inverse discipline: **canon never relocates.** No
+quantum ogre — the prepared dungeon does not quietly move to wherever
+the players went, because the ledger and replay would show the seams,
+and because free prep makes the trick pointless. (Beat coercion —
+section 5 — moves *intentions* to the nearest real place; it never
+moves places.)
+
+**The journey.** Today this is aspiration, not mechanics: the travel
+FSM never sees geography — no origin, no edges, every trip is 2–3
+segments whether it's a day's walk or an ocean. Geography got
+distance; travel didn't follow. Phase F closes it:
+
+- **`planJourney(geo, fromId, toId, { modes, capabilities })`** — a
+  pure planner over `routeBetween`, which gains a traversability
+  predicate (today it routes a sea lane like a road). The plan is
+  legs: `{ from, to, mode, days, segments }`. The FSM stays
+  free-standing — it gains an options bag
+  (`beginTravel(dest, rng, { segments, mode })`) and the no-opts call
+  keeps today's behaviour, the `adoptFlatWorld` precedent again.
+- **`TRAVEL_MODES`** — a host-overridable table per mode (road / sea /
+  air): days-per-segment, encounter chance, discovery table. Segments
+  derive from route days **with today's 2-segment floor**, so
+  promote-on-departure never loses its budget on a one-day hop. Sea
+  crossings get storms as *discoveries* — the FSM's event shape does
+  not change.
+- **Air pays with the same coin.** Nodes have no coordinates, and we
+  are not minting any — that would change the skeleton output and
+  therefore the cartridge envelope, for one travel mode. Air prices
+  off the underlying route days × a mode factor: faster, not free.
+  (Sea lanes chain consecutive continents' ports, so a flight across
+  three crossings prices off three crossings. It *is* far.)
+- **Legs are capped** (~8 segments), long crossings break at port
+  stops — diegetic resupply, and each leg restarts the latency budget.
+- **Capability, not simulation.** The planner takes
+  `capabilities: { sea, air }` from the host. How the party got a ship
+  is the economy's and the kernel's business, not the planner's.
+
+**Hearing of the far shore.** A player can only choose a destination
+they can name, and today the far continent is mechanically reachable
+but *unnameable*: `knownMap`'s rumours come from visited neighbours,
+and province nodes are never visited — `markVisited` only ever touches
+regions, so the sea edge between ports connects two permanent
+strangers. The load-bearing fix is one rule: **`discovered` bubbles up
+`parent` links on visit** (never clearing `stub` — the same
+distinction `promoteNode` already draws). Visit any region and its
+province is seen; the province's sea lane puts the far port in
+`knownMap.rumoured`; the far port's detail-0 hook — *"sailors will not
+name it after dark"* — is the brochure. Sailors' tales are not new
+machinery; they are `knownMap` working as designed.
+
+**Landfall.** Sea arrivals anchor at `port: true` provinces, resolved
+by `portAnchorOf(geo, provinceId)` to a deterministic harbor region.
+Air and portals may land anywhere: `mintLandfall(geo, provinceId,
+{ via })` mints a landfall region + `site:landfall` stub, seeded from
+the province seed so replay and shared cartridges agree on where the
+wanderer came down. This closes a gap the plan had left open: **nobody
+minted a province's first region** — the skeleton stops at provinces
+and `expandFrom` grows region-from-region, which the home continent's
+starting region masked. The `'province'` template's `mints` now
+includes its initial region stubs.
+
+**The cold landing.** Arriving where every ancestor is a stub
+hydrates the lineage top-down — `ensureLineage`: continent outline
+(tiny), province outline (tiny), landing region (medium). A 6–8-day
+crossing is the *most generous latency budget in the game*: three
+calls spread across six narration beats. Portals invert it — zero
+days, zero budget — so portals are **fallback-first by design**: the
+template's procedural fallback *is* the arrival, marked provisional,
+and the real hydration supersedes it behind the first scene. One
+coherence rule joins section 7: a provisional fact the players *acted
+on* is promoted to a hint-commitment the real hydration must consume —
+what the table saw, the world keeps.
+
+**The story follows; it doesn't strand.**
+
+- **Travel days are the world's clock ticks.** Journey days feed
+  `tickAll` — the contested succession at home advances *because* the
+  party spent eight days at sea. The diegetic cost and the
+  moving-world are one mechanism, not two.
+- The red thread re-anchors: the destination continent's **threat
+  expression** (its `deriveBlueprint` slice) is the same world-threat
+  wearing local clothes, and the next act — generated from what
+  actually happened, gazetteer-constrained to the new continent's
+  known nodes — binds to it. The explorer's dividend (section 4)
+  guarantees the gazetteer isn't empty on arrival.
+- **Coming home is cheap by construction** — home is canon, zero
+  hydration. What needs assembling is the recap:
+  `whileYouWereGone(clocks, ledger, { sinceTurn })`, a pure digest of
+  clocks that filled and provisionals that were superseded while the
+  party was away.
+- **Death far from home** changes nothing here: dying is the kernel's
+  business; worldgen's only promise is that far-continent canon
+  persists in the ledger, whoever comes looking next.
+
+**Honest danger.** The world does not scale to the party — chosen
+deliberately over rubber-banding. Each continent's blueprint slice
+carries a `menace` tier, expressed **only through signposting** the
+machinery already has: detail-0 hooks, scoped hints, legend rumors,
+what the sailors refuse to say. Informed risk is the fun; walking into
+a place that outclasses you is a choice the world telegraphed. And a
+hard fence for hosts that insist otherwise: scaling must live as a
+session-local ledger *view*, never a patch — write it into canon and
+two players mounting the same cartridge no longer share a world
+(section 11's byte-identical guarantee).
+
+## 10 · Layouts — space that makes sense
+
+Dungeons already have honest space: rooms on a grid, exits derived
+from adjacency, lock-and-key over the graph. Settlements have none —
+`SETTLEMENT_SCHEMA` is a cast list with gates, and "you walk left from
+the bakery to the butcher" is re-improvised every scene, which is
+exactly how a table GM drifts when nobody wrote the street down. The
+common craft answer — in interactive fiction, MUDs, and every GM's
+actual notebook — is not a geometric map but a **location graph with
+landmarks**: notable places as nodes, streets as edges with
+directions, districts when the settlement outgrows one graph. We make
+it persistent the same way we made dungeons persistent: seed it.
+
+- **One layout engine, two costumes.** The dungeon generator's spatial
+  core — grid placement, spine + branches, derived cardinal exits — is
+  extracted (guarded by the existing dungeon tests; its output must not
+  change) into a shared `generateLayout`. A dungeon dresses it as
+  corridors and rooms; a settlement dresses it as **the high street
+  and its lanes**: spine = market row (entrance gate at one end, the
+  seat/square where the vault was), branches = side lanes, plots
+  instead of rooms. Pure and seeded from the site seed — free,
+  deterministic, replay- and cartridge-safe. Layouts never need
+  baking; only their dressing is patches.
+- **A scale ladder, recursing the LOD.** Hamlet = a single path;
+  village = spine + branches; town and city = a **district graph**
+  where each district is its own lazily-hydrated layout
+  (`site:district` — stubs until entered, like everything else in the
+  tree). A city is not a bigger graph; it is a tree of small ones.
+- **Placement is procedural; dressing is LLM.** The settlement's
+  building list (blueprint `buildingTypes`, the buildings its template
+  mints) is *placed* onto plots deterministically. The model writes
+  what the bakery smells like; it never chooses where the bakery
+  stands — the same `method: mixed` division dungeons already use.
+  Buildings are interiors: detail on entry.
+- **Movement is free navigation.** No travel FSM inside the walls —
+  walking the graph is narration, like dungeon rooms. The settlement's
+  `exits[]` (already in the schema) are its gates, and each gate binds
+  to a layout node on one side and a region edge on the other.
+- **Bindings are post-conditions** (section 7 machinery): every NPC
+  with a workplace role resolves to a plot that carries their building
+  (the innkeeper's inn exists, and is *somewhere*); every gate lands
+  on a layout edge node. A violation coerces like any other dangling
+  reference.
+
+So the walk from the bakery, down the lane and left to the butcher, is
+the same walk in session forty — not because anyone wrote prose down,
+but because the street graph was never prose in the first place.
+
+## 11 · Pre-generated worlds — cartridges and MCP playback
 
 The ledger split above is what makes shared worlds nearly free:
 
@@ -392,7 +567,7 @@ The ledger split above is what makes shared worlds nearly free:
   would swamp the 69 kB package); a catalog repo or GitHub release
   assets carry them.
 
-## 10 · Phases
+## 12 · Phases
 
 Each phase is one branch → PR → merge, tests green, in this order —
 every phase is independently shippable and the ones after C are
@@ -402,17 +577,35 @@ parallel-friendly:
   climate spread, naming cultures, scoped hint formatters, deprecation
   shims. *Fixes the frozen-tomb bug on its own.* (minor bump)
 - **B · Lore entities** — crown/legend/era schemas + genesis stubs +
-  `legal.test.js` coverage of every new table. (minor)
+  the explorer's-dividend binding rule (≥1 legend site on each
+  continent's first port province) + `legal.test.js` coverage of every
+  new table. (minor)
 - **C · Hydration** — sites as nodes, the template registry with
-  consumes/mints/post-conditions and procedural fallbacks,
-  `lineageContext`, `hydrateNode` with the coercion ladder and atomic
-  commit, hint-commitments + neighbour digests, promotion triggers
-  (including the gazetteer constraint on beats), ledger-canon wiring.
-  (minor)
+  consumes/mints/post-conditions and procedural fallbacks (the
+  `'province'` template mints its initial region stubs),
+  `lineageContext` + `ensureLineage`, `hydrateNode` with the coercion
+  ladder and atomic commit, hint-commitments + neighbour digests +
+  observed-provisional promotion, `discoverAncestors` bubbling,
+  promotion triggers (including the gazetteer constraint on beats),
+  ledger-canon wiring. (minor)
 - **D · Cartridges** — bake script, envelope format, catalog layout.
-  (minor)
+  Deliberately bakes nothing new for crossings or layouts: no
+  coordinates, no coastal flags — the envelope is untouched. (minor)
 - **E · MCP surface** — resources + tools + playback, in
-  `bag-of-holding-mcp`. (that package's own versioning)
+  `bag-of-holding-mcp`; port-anchor regions are the natural pre-bake
+  candidates for `world_hydrate`. (that package's own versioning)
+- **F · Crossings** — `planJourney` + `TRAVEL_MODES`, the
+  `routeBetween` traversability predicate, FSM options-bag shims,
+  `mintLandfall` + `portAnchorOf`, travel-days → `tickAll` wiring,
+  `menace` + signposting hints, `whileYouWereGone`, mode-flavored
+  discovery tables through the legal sweep. The planner half depends
+  only on `geography.js` and can land any time; the landfall half
+  depends on C. (minor)
+- **G · Layouts** — extract the layout engine from
+  `dungeon/generate.js` with its output pinned by the existing dungeon
+  tests, then `generateLayout` for settlements, the district ladder
+  (`site:district`), deterministic building placement, gate/NPC
+  bindings. Pure procedural, no LLM calls; parallel-friendly. (minor)
 
 Test strategy stays the house style: every new module is pure and
 injected, so `node --test` covers it without a network; the entry-point
