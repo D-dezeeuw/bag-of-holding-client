@@ -230,6 +230,53 @@ export const CONTINENTS_OUTLINE_SCHEMA = {
   additionalProperties: false,
 };
 
+// ─── Lore entities (doc 18 §4) ───────────────────────────────────────────────
+//
+// Hydration contracts for the stubs src/worldgen/lore.js mints at genesis.
+
+export const CROWN_SCHEMA = {
+  type: 'object',
+  properties: {
+    id:            { type: 'string' },
+    name:          { type: 'string' },
+    title:         { type: 'string' },
+    seat:          { type: ['string', 'null'] },
+    legitimacy:    { type: 'string', enum: ['settled', 'contested', 'usurped', 'failing', 'newly crowned'] },
+    stanceOnThreat: { type: 'string' },
+    factionRelations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          factionId: { type: 'string' },
+          stance:    { type: 'string', enum: ['ally', 'rival', 'puppet', 'defiant'] },
+        },
+        required: ['factionId', 'stance'],
+        additionalProperties: false,
+      },
+    },
+    digest: { type: 'string' },
+  },
+  required: ['id', 'name', 'title', 'seat', 'legitimacy', 'stanceOnThreat', 'factionRelations', 'digest'],
+  additionalProperties: false,
+};
+
+export const LEGEND_SCHEMA = {
+  type: 'object',
+  properties: {
+    id:            { type: 'string' },
+    title:         { type: 'string' },
+    era:           { type: ['string', 'null'] },
+    kernelOfTruth: { type: 'string' },
+    sites:         { type: 'array', items: { type: 'string' } },
+    hooks:         { type: 'array', items: { type: 'string' } },
+    payoff:        { type: 'string' },
+    digest:        { type: 'string' },
+  },
+  required: ['id', 'title', 'era', 'kernelOfTruth', 'sites', 'hooks', 'payoff', 'digest'],
+  additionalProperties: false,
+};
+
 export const PROVINCE_OUTLINE_SCHEMA = {
   type: 'object',
   properties: {

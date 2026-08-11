@@ -23,6 +23,8 @@ import { DEFAULT_TABLES, buildBlueprint, deriveBlueprint, blueprintContext,
          worldSeedConstraints, beatsHints, factionsHints, regionHints, settlementHints,
          THEME_CLIMATES, BAND_SETTLEMENTS, THREAT_EXPRESSIONS } from '../src/worldgen/blueprint.js';
 import { DUNGEON_OVERLAYS } from '../src/dungeon/generate.js';
+import { mintLore, ERA_NAMES, LEGEND_TITLE_A, LEGEND_TITLE_B, CROWN_TITLES, LEGITIMACIES } from '../src/worldgen/lore.js';
+import { mintWorldSkeleton } from '../src/worldgen/skeleton.js';
 
 // Product Identity creatures named in docs/legal.md, plus the setting and
 // character names it rules out, plus the deity roster this table used to carry.
@@ -87,6 +89,16 @@ describe('content hygiene', () => {
       ...offendersIn(THREAT_EXPRESSIONS, 'THREAT_EXPRESSIONS'),
     ];
     assert.deepEqual(bad, [], `forbidden names in scoped tables:\n${bad.join('\n')}`);
+  });
+
+  it('ships no product-identity names in the lore tables or minted lore', () => {
+    const bad = [
+      ...offendersIn({ ERA_NAMES, LEGEND_TITLE_A, LEGEND_TITLE_B, CROWN_TITLES, LEGITIMACIES }, 'lore tables'),
+    ];
+    for (let seed = 1; seed <= 20; seed++) {
+      bad.push(...offendersIn(mintLore(mintWorldSkeleton(seed), seed), `mintLore seed ${seed}`));
+    }
+    assert.deepEqual(bad, [], `forbidden names in lore:\n${bad.slice(0, 10).join('\n')}`);
   });
 
   it('renders no product-identity names through the scoped chain', () => {

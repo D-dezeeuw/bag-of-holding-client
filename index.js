@@ -64,7 +64,12 @@ export {
   WORLD_SEED_SCHEMA, REGION_SCHEMA, NPC_SCHEMA, FACTION_SCHEMA,
   BEAT_SCHEMA, RED_THREAD_SCHEMA, FACTIONS_SCHEMA, SETTLEMENT_SCHEMA,
   CONTINENT_OUTLINE_SCHEMA, CONTINENTS_OUTLINE_SCHEMA, PROVINCE_OUTLINE_SCHEMA,
+  CROWN_SCHEMA, LEGEND_SCHEMA,
 } from './src/worldgen/schemas.js';
+export {
+  mintEras, mintLegendStubs, mintCrownStub, mintLore,
+  ERA_NAMES, LEGEND_TITLE_A, LEGEND_TITLE_B, CROWN_TITLES, LEGITIMACIES,
+} from './src/worldgen/lore.js';
 
 // ── Dungeon ────────────────────────────────────────────────────────────────────
 export { generateDungeon, DUNGEON_OVERLAYS, DEFAULT_SIZE as DEFAULT_DUNGEON_SIZE } from './src/dungeon/generate.js';
