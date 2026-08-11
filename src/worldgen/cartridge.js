@@ -51,10 +51,15 @@ export async function bakeCartridge(seed, { complete = null, eraCount = null } =
         slice: slices[id], slices,
         eras: lore.eras, legends: lore.legends,
       });
-      if (out.ok && !out.provisional) {
-        geo = out.geo;
-        outlines[id] = out.result;
-      }
+      if (!out.ok) continue;
+      // Keep the geo regardless of provisional status — a province's minted
+      // region stubs (template.mints === 'regions') must never be dropped
+      // just because its outline prompt came back empty and fell back. Only
+      // real model prose earns a slot in `outlines`: a cartridge's outline
+      // layer is specifically the baked LLM content, and callers already
+      // treat a missing outline as "not yet hydrated" via the detail ladder.
+      geo = out.geo;
+      if (!out.provisional) outlines[id] = out.result;
     }
   }
 

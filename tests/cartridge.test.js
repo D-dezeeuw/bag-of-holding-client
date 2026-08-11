@@ -8,6 +8,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { bakeCartridge, mountCartridge, catalogEntry, CARTRIDGE_VERSION } from '../src/worldgen/cartridge.js';
+import { childrenOf } from '../src/worldgen/geography.js';
 
 describe('bakeCartridge', () => {
   it('is byte-deterministic without a completer', async () => {
@@ -52,6 +53,21 @@ describe('bakeCartridge', () => {
     for (const id of Object.keys(d.outlines)) {
       assert.ok((d.geo.nodes[id].detail ?? 0) >= 1, `${id} not promoted`);
       assert.equal(d.geo.nodes[id].stub, true, `${id} must stay a stub at detail 1`);
+    }
+  });
+
+  // Regression: a province whose outline prompt comes back empty still falls
+  // back and commits — including the region stubs its template mints. Losing
+  // those silently (by discarding the whole hydration because it was
+  // provisional) used to strand a province with no regions to land in.
+  it('mints a province’s regions even when its outline hydration is provisional', async () => {
+    const complete = async () => null; // every layer falls back
+    const cart = await bakeCartridge(7, { complete });
+    const d = cart.data;
+    assert.deepEqual(Object.keys(d.outlines), []); // nothing was real prose
+    for (const pId of d.provinces) {
+      const regions = childrenOf(d.geo, pId).filter(n => n.kind === 'region');
+      assert.ok(regions.length >= 1, `${pId} has no minted regions`);
     }
   });
 });
