@@ -41,6 +41,7 @@ describe('public entry point', () => {
       worldgen: ['buildBlueprint', 'deriveBlueprint', 'THEME_CLIMATES', 'runPipeline', 'mintWorldSkeleton', 'WORLD_SEED_SCHEMA'],
       lore: ['mintLore', 'mintEras', 'mintCrownStub', 'CROWN_SCHEMA', 'LEGEND_SCHEMA'],
       hydration: ['hydrateNode', 'HYDRATION_TEMPLATES', 'ensureLineage', 'lineageContext', 'gazetteerOf', 'discoverAncestors'],
+      cartridge: ['bakeCartridge', 'mountCartridge', 'catalogEntry', 'CARTRIDGE_VERSION'],
       dungeon: ['generateDungeon', 'DUNGEON_OVERLAYS'],
       narrative: ['currentBeat', 'makeAct', 'adjustReputation', 'makeClock'],
       settlement: ['resolvePurchase', 'makeQuest', 'pushDialogue'],
