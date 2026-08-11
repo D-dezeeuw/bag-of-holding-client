@@ -18,6 +18,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Match package.json engines (>=22). CI used to run 20, so it was
+          # green on a runtime the package tells consumers it does not support.
+          node-version: '22'
       - run: npm ci || npm install
       - run: npm test
