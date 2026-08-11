@@ -125,16 +125,30 @@ export function expandFrom(geo, id, { count = 3, nameFor, hookFor } = {}) {
   return out;
 }
 
+// Seeing a place means seeing what it belongs to: visiting a region makes
+// its province and continent `discovered` (never clearing `stub` — an
+// ancestor is seen-of, not generated). This is the load-bearing trick of
+// doc 18 §9: the home port province becomes visible, its sea lane makes the
+// far port `rumoured`, and sailors' tales are knownMap working as designed.
+export function discoverAncestors(geo, id) {
+  let out = geo;
+  for (const anc of ancestorsOf(geo, id)) {
+    if (out.nodes[anc.id]?.discovered) continue;
+    out = { ...out, nodes: { ...out.nodes, [anc.id]: { ...out.nodes[anc.id], discovered: true } } };
+  }
+  return out;
+}
+
 // Mark a node hydrated (its content has been generated) and reveal its edges.
 export function markVisited(geo, id) {
   const node = geo.nodes[id];
   if (!node) return geo;
-  return {
+  return discoverAncestors({
     ...geo,
     // Visited means the content was generated — full detail by definition.
     nodes: { ...geo.nodes, [id]: { ...node, stub: false, discovered: true, detail: 2 } },
     edges: geo.edges.map(e => (e.from === id || e.to === id) ? { ...e, discovered: true } : e),
-  };
+  }, id);
 }
 
 // Everything the player has seen or heard of — what a map screen renders.

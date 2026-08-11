@@ -57,8 +57,13 @@ export { runPipeline, ensureDigest, withRetry, PipelineError } from './src/world
 export {
   emptyGeography, addNode, connect, neighbours, expandFrom, markVisited,
   knownMap, routeBetween, DIRECTIONS,
-  childrenOf, ancestorsOf, promoteNode,
+  childrenOf, ancestorsOf, promoteNode, discoverAncestors,
 } from './src/worldgen/geography.js';
+export {
+  HYDRATION_TEMPLATES, hydrateNode, ensureLineage, lineageContext,
+  gazetteerOf, coerceBeatLocation, runPostConditions,
+  mintProvinceRegions, mintRegionSites, promoteObserved,
+} from './src/worldgen/hydrate.js';
 export { mintWorldSkeleton, adoptFlatWorld, CLIMATE_BANDS, SYLLABLES } from './src/worldgen/skeleton.js';
 export {
   WORLD_SEED_SCHEMA, REGION_SCHEMA, NPC_SCHEMA, FACTION_SCHEMA,
