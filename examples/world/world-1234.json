@@ -1,0 +1,1175 @@
+{
+  "seed": 1234,
+  "generatedAt": "2026-08-11T14:05:06.869Z",
+  "hydratedByModel": true,
+  "worldSeed": {
+    "provisional": false,
+    "name": "The Hollow Gloom",
+    "tone": "grimdark",
+    "creation": "A decaying subterranean expanse where the sun is a myth and the air tastes of damp earth and ancient rot.",
+    "gods": [
+      {
+        "name": "Vorgath the Banner-Bearer",
+        "domain": "war"
+      },
+      {
+        "name": "Glyph-Weaver Xylos",
+        "domain": "arcana"
+      },
+      {
+        "name": "Kaelith the Unforgiving",
+        "domain": "vengeance"
+      }
+    ],
+    "redThread": {
+      "premise": "An omen of shifting shadows leads to the discovery of a frozen tomb, where a betrayal by a trusted ranger reveals a void entity's plan to consume the cavern's lifeblood, forcing a sacrifice that leads to a pyrrhic victory.",
+      "hook": "A strange, violet frost begins creeping across the mushroom stalks of the fungal farms, defying the warmth of the geothermal vents."
+    },
+    "digest": "In the"
+  },
+  "cartridge": {
+    "v": 1,
+    "digest": "ec770334",
+    "continents": [
+      "continent-0",
+      "continent-1"
+    ],
+    "provinces": [
+      "continent-0.province-0",
+      "continent-0.province-1",
+      "continent-0.province-2",
+      "continent-0.province-3",
+      "continent-1.province-0",
+      "continent-1.province-1",
+      "continent-1.province-2"
+    ],
+    "lore": {
+      "eras": [
+        {
+          "id": "era-0",
+          "name": "the Age of Salt and Iron",
+          "order": 0,
+          "stub": true
+        },
+        {
+          "id": "era-1",
+          "name": "the Quiet Roads",
+          "order": 1,
+          "stub": true
+        },
+        {
+          "id": "era-2",
+          "name": "the Long Thaw",
+          "order": 2,
+          "stub": true
+        }
+      ],
+      "legends": [
+        {
+          "id": "continent-0.legend-0",
+          "title": "The Drowned Orchard",
+          "era": "era-0",
+          "sites": [
+            "continent-0.province-0"
+          ],
+          "hooks": [],
+          "kernelOfTruth": null,
+          "payoff": null,
+          "stub": true
+        },
+        {
+          "id": "continent-0.legend-1",
+          "title": "The Broken Crown",
+          "era": "era-0",
+          "sites": [
+            "continent-0.province-3",
+            "continent-0.province-2"
+          ],
+          "hooks": [],
+          "kernelOfTruth": null,
+          "payoff": null,
+          "stub": true
+        },
+        {
+          "id": "continent-1.legend-0",
+          "title": "The Broken Orchard",
+          "era": "era-2",
+          "sites": [
+            "continent-1.province-0",
+            "continent-1.province-1"
+          ],
+          "hooks": [],
+          "kernelOfTruth": null,
+          "payoff": null,
+          "stub": true
+        },
+        {
+          "id": "continent-1.legend-1",
+          "title": "The Last Fleet",
+          "era": "era-1",
+          "sites": [
+            "continent-1.province-2",
+            "continent-1.province-0"
+          ],
+          "hooks": [],
+          "kernelOfTruth": null,
+          "payoff": null,
+          "stub": true
+        },
+        {
+          "id": "continent-1.legend-2",
+          "title": "The Iron Crown",
+          "era": "era-1",
+          "sites": [
+            "continent-1.province-2"
+          ],
+          "hooks": [],
+          "kernelOfTruth": null,
+          "payoff": null,
+          "stub": true
+        }
+      ],
+      "crowns": [
+        {
+          "id": "continent-0.province-0.crown",
+          "name": "House Faldeep",
+          "title": "Storm Warden",
+          "legitimacy": "newly crowned",
+          "seat": null,
+          "stanceOnThreat": null,
+          "factionRelations": [],
+          "stub": true
+        },
+        {
+          "id": "continent-0.province-1.crown",
+          "name": "House Ashmark",
+          "title": "Storm Warden",
+          "legitimacy": "failing",
+          "seat": null,
+          "stanceOnThreat": null,
+          "factionRelations": [],
+          "stub": true
+        },
+        {
+          "id": "continent-0.province-2.crown",
+          "name": "House Mirevale",
+          "title": "Elder Speaker",
+          "legitimacy": "usurped",
+          "seat": null,
+          "stanceOnThreat": null,
+          "factionRelations": [],
+          "stub": true
+        },
+        {
+          "id": "continent-0.province-3.crown",
+          "name": "House Ashvale",
+          "title": "High Sovereign",
+          "legitimacy": "failing",
+          "seat": null,
+          "stanceOnThreat": null,
+          "factionRelations": [],
+          "stub": true
+        },
+        {
+          "id": "continent-1.province-0.crown",
+          "name": "House Bonemoor",
+          "title": "Tide-Throne",
+          "legitimacy": "settled",
+          "seat": null,
+          "stanceOnThreat": null,
+          "factionRelations": [],
+          "stub": true
+        },
+        {
+          "id": "continent-1.province-1.crown",
+          "name": "House Thorndeep",
+          "title": "Tide-Throne",
+          "legitimacy": "settled",
+          "seat": null,
+          "stanceOnThreat": null,
+          "factionRelations": [],
+          "stub": true
+        },
+        {
+          "id": "continent-1.province-2.crown",
+          "name": "House Saltrise",
+          "title": "Tide-Throne",
+          "legitimacy": "contested",
+          "seat": null,
+          "stanceOnThreat": null,
+          "factionRelations": [],
+          "stub": true
+        }
+      ]
+    },
+    "slices": {
+      "world": {
+        "seed": 1234,
+        "tone": "grimdark",
+        "worldArchetype": "dragon age",
+        "threatType": "void entity",
+        "beatArc": [
+          "omen",
+          "discovery",
+          "betrayal",
+          "sacrifice",
+          "pyrrhic victory"
+        ],
+        "factionSlots": [
+          {
+            "type": "pirate fleet",
+            "desc": "naval raiders controlling sea routes"
+          },
+          {
+            "type": "ranger corps",
+            "desc": "wilderness protectors, monster hunters"
+          },
+          {
+            "type": "exile commune",
+            "desc": "banished outcasts forming their own society"
+          }
+        ],
+        "climate": "underground caverns",
+        "settlementType": "mushroom farm",
+        "dungeonTheme": "frozen tomb",
+        "godDomains": [
+          {
+            "domain": "war",
+            "epithets": [
+              "the first to raise a banner",
+              "the god who counts the fallen and calls it worship",
+              "the whetstone of nations"
+            ]
+          },
+          {
+            "domain": "arcana",
+            "epithets": [
+              "the pattern beneath the world",
+              "the first to speak a word that changed a thing",
+              "the keeper of the deep grammar"
+            ]
+          },
+          {
+            "domain": "vengeance",
+            "epithets": [
+              "the debt that is always collected",
+              "the god who does not forget a wrong",
+              "the oath sworn over a grave"
+            ]
+          }
+        ],
+        "buildingTypes": [
+          "bathhouse",
+          "bakery",
+          "alchemist shop",
+          "apothecary"
+        ],
+        "locationTypes": [
+          "elven waystone",
+          "waterfall",
+          "dwarven marker"
+        ],
+        "scope": "world"
+      },
+      "continent-0": {
+        "scope": "continent",
+        "seed": 755282874,
+        "tone": "grimdark",
+        "threatType": "void entity",
+        "godDomains": [
+          {
+            "domain": "war",
+            "epithets": [
+              "the first to raise a banner",
+              "the god who counts the fallen and calls it worship",
+              "the whetstone of nations"
+            ]
+          },
+          {
+            "domain": "arcana",
+            "epithets": [
+              "the pattern beneath the world",
+              "the first to speak a word that changed a thing",
+              "the keeper of the deep grammar"
+            ]
+          },
+          {
+            "domain": "vengeance",
+            "epithets": [
+              "the debt that is always collected",
+              "the god who does not forget a wrong",
+              "the oath sworn over a grave"
+            ]
+          }
+        ],
+        "threatExpression": "an open assault no one pretends not to see",
+        "namingCulture": {
+          "prefixes": [
+            "Mire",
+            "Thorn",
+            "Ash",
+            "Iron",
+            "Fal"
+          ],
+          "suffixes": [
+            "mark",
+            "wald",
+            "deep",
+            "coast",
+            "vale"
+          ]
+        },
+        "menace": "dangerous"
+      },
+      "continent-0.province-0": {
+        "scope": "province",
+        "seed": 366601612,
+        "tone": "grimdark",
+        "threatExpression": "an open assault no one pretends not to see",
+        "namingCulture": {
+          "prefixes": [
+            "Mire",
+            "Thorn",
+            "Ash",
+            "Iron",
+            "Fal"
+          ],
+          "suffixes": [
+            "mark",
+            "wald",
+            "deep",
+            "coast",
+            "vale"
+          ]
+        },
+        "climate": "temperate",
+        "dungeonThemePalette": [
+          "cult sanctum",
+          "haunted manor",
+          "goblin warren"
+        ],
+        "settlementPalette": [
+          "farming village",
+          "crossroads town",
+          "mill town",
+          "market town"
+        ],
+        "worshipSkew": [
+          "vengeance"
+        ]
+      },
+      "continent-0.province-1": {
+        "scope": "province",
+        "seed": 554333201,
+        "tone": "grimdark",
+        "threatExpression": "an open assault no one pretends not to see",
+        "namingCulture": {
+          "prefixes": [
+            "Mire",
+            "Thorn",
+            "Ash",
+            "Iron",
+            "Fal"
+          ],
+          "suffixes": [
+            "mark",
+            "wald",
+            "deep",
+            "coast",
+            "vale"
+          ]
+        },
+        "climate": "frozen",
+        "dungeonThemePalette": [
+          "dragon hoard",
+          "vampire castle"
+        ],
+        "settlementPalette": [
+          "frontier outpost",
+          "mining camp",
+          "ice-fisher village",
+          "fortified lodge"
+        ],
+        "worshipSkew": [
+          "arcana",
+          "war"
+        ]
+      },
+      "continent-0.province-2": {
+        "scope": "province",
+        "seed": 602364910,
+        "tone": "grimdark",
+        "threatExpression": "an open assault no one pretends not to see",
+        "namingCulture": {
+          "prefixes": [
+            "Mire",
+            "Thorn",
+            "Ash",
+            "Iron",
+            "Fal"
+          ],
+          "suffixes": [
+            "mark",
+            "wald",
+            "deep",
+            "coast",
+            "vale"
+          ]
+        },
+        "climate": "volcanic",
+        "dungeonThemePalette": [
+          "elemental nexus",
+          "abandoned mine"
+        ],
+        "settlementPalette": [
+          "forge city",
+          "obsidian mining camp",
+          "refugee camp",
+          "fire-cult commune"
+        ],
+        "worshipSkew": [
+          "vengeance",
+          "arcana"
+        ]
+      },
+      "continent-0.province-3": {
+        "scope": "province",
+        "seed": 529099875,
+        "tone": "grimdark",
+        "threatExpression": "an open assault no one pretends not to see",
+        "namingCulture": {
+          "prefixes": [
+            "Mire",
+            "Thorn",
+            "Ash",
+            "Iron",
+            "Fal"
+          ],
+          "suffixes": [
+            "mark",
+            "wald",
+            "deep",
+            "coast",
+            "vale"
+          ]
+        },
+        "climate": "arid",
+        "dungeonThemePalette": [
+          "goblin warren",
+          "demonic hellgate",
+          "clockwork vault"
+        ],
+        "settlementPalette": [
+          "oasis trading post",
+          "canyon settlement",
+          "nomad bazaar",
+          "quarry town"
+        ],
+        "worshipSkew": [
+          "arcana"
+        ]
+      },
+      "continent-1": {
+        "scope": "continent",
+        "seed": 969434269,
+        "tone": "grimdark",
+        "threatType": "void entity",
+        "godDomains": [
+          {
+            "domain": "war",
+            "epithets": [
+              "the first to raise a banner",
+              "the god who counts the fallen and calls it worship",
+              "the whetstone of nations"
+            ]
+          },
+          {
+            "domain": "arcana",
+            "epithets": [
+              "the pattern beneath the world",
+              "the first to speak a word that changed a thing",
+              "the keeper of the deep grammar"
+            ]
+          },
+          {
+            "domain": "vengeance",
+            "epithets": [
+              "the debt that is always collected",
+              "the god who does not forget a wrong",
+              "the oath sworn over a grave"
+            ]
+          }
+        ],
+        "threatExpression": "a quiet corruption working through trusted hands",
+        "namingCulture": {
+          "prefixes": [
+            "Bone",
+            "Hollow",
+            "Grey",
+            "Thorn",
+            "Salt"
+          ],
+          "suffixes": [
+            "rise",
+            "moor",
+            "march",
+            "deep",
+            "reach"
+          ]
+        },
+        "menace": "uneasy"
+      },
+      "continent-1.province-0": {
+        "scope": "province",
+        "seed": 681554534,
+        "tone": "grimdark",
+        "threatExpression": "a quiet corruption working through trusted hands",
+        "namingCulture": {
+          "prefixes": [
+            "Bone",
+            "Hollow",
+            "Grey",
+            "Thorn",
+            "Salt"
+          ],
+          "suffixes": [
+            "rise",
+            "moor",
+            "march",
+            "deep",
+            "reach"
+          ]
+        },
+        "climate": "volcanic",
+        "dungeonThemePalette": [
+          "planar rift",
+          "living dungeon",
+          "dragon hoard"
+        ],
+        "settlementPalette": [
+          "forge city",
+          "obsidian mining camp",
+          "refugee camp",
+          "fire-cult commune"
+        ],
+        "worshipSkew": [
+          "war",
+          "arcana"
+        ]
+      },
+      "continent-1.province-1": {
+        "scope": "province",
+        "seed": 619211402,
+        "tone": "grimdark",
+        "threatExpression": "a quiet corruption working through trusted hands",
+        "namingCulture": {
+          "prefixes": [
+            "Bone",
+            "Hollow",
+            "Grey",
+            "Thorn",
+            "Salt"
+          ],
+          "suffixes": [
+            "rise",
+            "moor",
+            "march",
+            "deep",
+            "reach"
+          ]
+        },
+        "climate": "temperate",
+        "dungeonThemePalette": [
+          "fey glade gone wrong",
+          "bandit fortress",
+          "haunted manor"
+        ],
+        "settlementPalette": [
+          "farming village",
+          "crossroads town",
+          "mill town",
+          "market town"
+        ],
+        "worshipSkew": [
+          "war"
+        ]
+      },
+      "continent-1.province-2": {
+        "scope": "province",
+        "seed": 683006592,
+        "tone": "grimdark",
+        "threatExpression": "a quiet corruption working through trusted hands",
+        "namingCulture": {
+          "prefixes": [
+            "Bone",
+            "Hollow",
+            "Grey",
+            "Thorn",
+            "Salt"
+          ],
+          "suffixes": [
+            "rise",
+            "moor",
+            "march",
+            "deep",
+            "reach"
+          ]
+        },
+        "climate": "frozen",
+        "dungeonThemePalette": [
+          "abandoned mine",
+          "beast lair"
+        ],
+        "settlementPalette": [
+          "frontier outpost",
+          "mining camp",
+          "ice-fisher village",
+          "fortified lodge"
+        ],
+        "worshipSkew": [
+          "arcana"
+        ]
+      }
+    },
+    "outlines": {}
+  },
+  "hydrated": {
+    "region": {
+      "id": "continent-0.province-0.region-0",
+      "provisional": false,
+      "name": "Ironvale",
+      "description": "Nestled along the mist-laced cliffs of the Ironcoast, Ironvale is a quiet mill town where the rhythmic creak of waterwheels competes with the sigh of wind through ancient oaks. Though the land is fertile and the streams run clear, a pall hangs over the valley — not from neglect, but from memory. Locals speak in hushed tones of the Blackwood Manor, a once-grand estate now swallowed by ivy and shadow, its windows dark even at noon. No one admits to seeing the lights flicker in its upper halls… but everyone avoids the old path after sundown. The mill still turns, the baker still rises before dawn, but the air tastes of iron and old sorrow — as if the land itself remembers what the people refuse to name.",
+      "rumor": "They say the lord of Blackwood Manor didn’t die — he just stopped answering the door. And every harvest moon, the millwheel turns backward… for exactly thirteen chimes.",
+      "adjacentHints": [
+        "The fog that clings to Ironvale’s hollows seems to thicken near the coast — where Ironcoast’s disputed borders bleed into the sea, and maps dissolve like salt in water.",
+        "Travelers who’ve passed through the northern passes whisper of standing stones that hum when touched — but no one in Ironvale will confirm they exist. They just hand you an extra loaf of bread and tell you to be home before the bells toll twelve."
+      ],
+      "climate": "temperate",
+      "settlementName": "Ironvale",
+      "dungeonName": "Blackwood Manor",
+      "digest": "Ironvale is a tempered mill town haunted not by monsters, but by silence — the kind that follows a truth too heavy to speak. Its people endure, but the manor watches, and the wheel remembers."
+    },
+    "settlement": {
+      "id": "settlement-ironvale",
+      "provisional": false,
+      "name": "Ironvale",
+      "description": "Ironvale is a tempered mill town haunted not by monsters, but by silence — the kind that follows a truth too heavy to speak. Its people endure, but the manor watches, and the wheel remembers.",
+      "npcs": [],
+      "exits": [],
+      "regionId": "region-ironvale",
+      "digest": "Ironvale is a tempered mill town haunted not by monsters, but by silence — the kind that follows a truth too heavy to speak. Its people endure, but the manor watches, and the wheel remembers."
+    },
+    "dungeonSite": {
+      "id": "continent-0.province-0.region-0.site-dungeon",
+      "name": "Blackwood Manor",
+      "theme": "haunted manor",
+      "hook": null,
+      "digest": "Blackwood Manor — sealed, for now"
+    },
+    "legend": {
+      "provisional": false,
+      "title": "The Unseen Siege",
+      "kernelOfTruth": "No one speaks of the day the walls wept iron and the sky forgot its color.",
+      "payoff": "To uncover the truth is to become part of the silence that followed — and the next assault begins when you stop looking.",
+      "hooks": [
+        "A child draws the same symbol in ash every dawn — it matches the scars on the Bastion’s gate.",
+        "A mendicant priest claims he heard the siege’s final scream… and it was his own voice.",
+        "The March’s corpses still march — but only when no living eyes are upon them."
+      ],
+      "id": "continent-0.legend-0",
+      "era": "era-0",
+      "digest": "The Unseen Siege was not hidden — it was witnessed, and then unanimously unremembered. To speak of it invites the next wave. Those who remember are marked — not by scars, but by the absence of others’ gaze when they speak."
+    },
+    "crown": {
+      "provisional": false,
+      "name": "House Faldeep",
+      "title": "High Lords of the Vengeful",
+      "stanceOnThreat": "an open assault no one pretends not to see",
+      "factionRelations": [
+        {
+          "factionId": "trade_union",
+          "stance": "puppet"
+        }
+      ],
+      "digest": "A house driven by a singular, burning desire for retribution, viewing all diplomacy through the lens of blood debt.",
+      "id": "continent-0.province-0.crown.house_faldeep",
+      "legitimacy": "newly crowned"
+    },
+    "landfall": {
+      "id": "continent-1.province-1.landfall",
+      "provisional": true,
+      "name": "Hollowmoor",
+      "hook": "something watched the descent and did not run",
+      "digest": "Hollowmoor — something watched the descent and did not run",
+      "climate": "temperate",
+      "description": "Hollowmoor. something watched the descent and did not run",
+      "settlementName": "Hollowmoor Rest",
+      "dungeonName": "the Hollowmoor Deep",
+      "rumor": "something watched the descent and did not run"
+    }
+  },
+  "dungeonCrawl": {
+    "currentRoom": "room-0",
+    "exitRoomId": "room-5",
+    "rooms": {
+      "room-0": {
+        "id": "room-0",
+        "name": "Chamber",
+        "description": "A bare stone room.",
+        "exits": [
+          {
+            "dir": "west",
+            "roomId": "room-1",
+            "locked": false
+          },
+          {
+            "dir": "north",
+            "roomId": "room-7",
+            "locked": false
+          }
+        ],
+        "loot": []
+      },
+      "room-1": {
+        "id": "room-1",
+        "name": "Chamber",
+        "description": "A bare stone room. Dust motes drift through pale light. A door creaks on its own.",
+        "exits": [
+          {
+            "dir": "east",
+            "roomId": "room-0",
+            "locked": false
+          },
+          {
+            "dir": "north",
+            "roomId": "room-2",
+            "locked": false
+          }
+        ],
+        "loot": []
+      },
+      "room-2": {
+        "id": "room-2",
+        "name": "Chamber",
+        "description": "A bare stone room. Dust motes drift through pale light. A door creaks on its own.",
+        "exits": [
+          {
+            "dir": "south",
+            "roomId": "room-1",
+            "locked": false
+          },
+          {
+            "dir": "west",
+            "roomId": "room-3",
+            "locked": false
+          },
+          {
+            "dir": "north",
+            "roomId": "room-6",
+            "locked": false
+          },
+          {
+            "dir": "east",
+            "roomId": "room-7",
+            "locked": false
+          }
+        ],
+        "loot": []
+      },
+      "room-3": {
+        "id": "room-3",
+        "name": "Chamber",
+        "description": "A bare stone room. Dust motes drift through pale light. A door creaks on its own.",
+        "exits": [
+          {
+            "dir": "east",
+            "roomId": "room-2",
+            "locked": false
+          },
+          {
+            "dir": "west",
+            "roomId": "room-4",
+            "locked": false
+          }
+        ],
+        "loot": []
+      },
+      "room-4": {
+        "id": "room-4",
+        "name": "Chamber",
+        "description": "A bare stone room. Dust motes drift through pale light. A door creaks on its own.",
+        "exits": [
+          {
+            "dir": "east",
+            "roomId": "room-3",
+            "locked": false
+          },
+          {
+            "dir": "south",
+            "roomId": "room-5",
+            "locked": true,
+            "keyId": "found-key"
+          }
+        ],
+        "loot": []
+      },
+      "room-5": {
+        "id": "room-5",
+        "name": "Chamber",
+        "description": "A bare stone room.",
+        "exits": [
+          {
+            "dir": "north",
+            "roomId": "room-4",
+            "locked": true,
+            "keyId": "found-key"
+          }
+        ],
+        "loot": [
+          {
+            "name": "hoard of coin",
+            "id": "treasure",
+            "type": "treasure",
+            "description": "A glittering pile of gold.",
+            "value": 250,
+            "taken": false
+          }
+        ]
+      },
+      "room-6": {
+        "id": "room-6",
+        "name": "Chamber",
+        "description": "A bare stone room. Dust motes drift through pale light. A door creaks on its own.",
+        "exits": [
+          {
+            "dir": "south",
+            "roomId": "room-2",
+            "locked": false
+          }
+        ],
+        "loot": [
+          {
+            "name": "iron key",
+            "desc": "A heavy iron key.",
+            "id": "found-key",
+            "taken": false,
+            "description": "A heavy iron key."
+          }
+        ]
+      },
+      "room-7": {
+        "id": "room-7",
+        "name": "Chamber",
+        "description": "A bare stone room. Dust motes drift through pale light. A door creaks on its own.",
+        "exits": [
+          {
+            "dir": "south",
+            "roomId": "room-0",
+            "locked": false
+          },
+          {
+            "dir": "west",
+            "roomId": "room-2",
+            "locked": false
+          }
+        ],
+        "loot": []
+      }
+    },
+    "npcs": {
+      "boss": {
+        "id": "boss",
+        "roomId": "room-5",
+        "name": "wight",
+        "creatureId": "wight",
+        "cr": 4,
+        "hp": 60,
+        "ac": 15,
+        "conditions": [],
+        "attitude": "hostile",
+        "alive": true,
+        "intro": "wight appears, hostile.",
+        "isBoss": true
+      },
+      "enemy-1": {
+        "id": "enemy-1",
+        "roomId": "room-6",
+        "name": "shadow",
+        "creatureId": "shadow",
+        "cr": 1,
+        "hp": 11,
+        "ac": 12,
+        "conditions": [],
+        "attitude": "hostile",
+        "alive": true,
+        "intro": "shadow appears, hostile."
+      },
+      "enemy-2": {
+        "id": "enemy-2",
+        "roomId": "room-4",
+        "name": "specter",
+        "creatureId": "specter",
+        "cr": 1,
+        "hp": 11,
+        "ac": 12,
+        "conditions": [],
+        "attitude": "hostile",
+        "alive": true,
+        "intro": "specter appears, hostile."
+      }
+    }
+  },
+  "crossing": {
+    "plan": {
+      "legs": [
+        {
+          "from": "continent-0.province-0",
+          "to": "continent-1.province-0",
+          "mode": "sea",
+          "days": 8,
+          "path": [
+            "continent-0.province-0",
+            "continent-1.province-0"
+          ],
+          "segments": 4
+        }
+      ],
+      "mode": "sea",
+      "totalDays": 8,
+      "totalSegments": 4
+    },
+    "log": [
+      {
+        "leg": {
+          "from": "continent-0.province-0",
+          "to": "continent-1.province-0",
+          "mode": "sea",
+          "days": 8,
+          "path": [
+            "continent-0.province-0",
+            "continent-1.province-0"
+          ],
+          "segments": 4
+        },
+        "events": [
+          {
+            "type": "depart",
+            "destination": "continent-1.province-0"
+          },
+          {
+            "type": "encounter"
+          },
+          {
+            "type": "uneventful"
+          },
+          {
+            "type": "uneventful"
+          },
+          {
+            "type": "uneventful"
+          },
+          {
+            "type": "arrive",
+            "destination": "continent-1.province-0",
+            "mode": "sea"
+          }
+        ]
+      }
+    ],
+    "harborRegion": "continent-1.province-0.region-0"
+  },
+  "layout": {
+    "settlement": {
+      "kind": "town",
+      "plots": [
+        {
+          "id": "plot-0",
+          "pos": {
+            "col": 0,
+            "row": 0
+          },
+          "role": "gate",
+          "building": null,
+          "exits": [
+            {
+              "dir": "north",
+              "plotId": "plot-1"
+            }
+          ]
+        },
+        {
+          "id": "plot-1",
+          "pos": {
+            "col": 0,
+            "row": -1
+          },
+          "role": "plot",
+          "building": null,
+          "exits": [
+            {
+              "dir": "south",
+              "plotId": "plot-0"
+            },
+            {
+              "dir": "east",
+              "plotId": "plot-2"
+            },
+            {
+              "dir": "north",
+              "plotId": "plot-5"
+            },
+            {
+              "dir": "west",
+              "plotId": "plot-7"
+            }
+          ]
+        },
+        {
+          "id": "plot-2",
+          "pos": {
+            "col": 1,
+            "row": -1
+          },
+          "role": "plot",
+          "building": "barracks",
+          "exits": [
+            {
+              "dir": "west",
+              "plotId": "plot-1"
+            },
+            {
+              "dir": "north",
+              "plotId": "plot-3"
+            },
+            {
+              "dir": "east",
+              "plotId": "plot-6"
+            }
+          ]
+        },
+        {
+          "id": "plot-3",
+          "pos": {
+            "col": 1,
+            "row": -2
+          },
+          "role": "plot",
+          "building": "market hall",
+          "exits": [
+            {
+              "dir": "south",
+              "plotId": "plot-2"
+            },
+            {
+              "dir": "north",
+              "plotId": "plot-4"
+            },
+            {
+              "dir": "west",
+              "plotId": "plot-5"
+            },
+            {
+              "dir": "east",
+              "plotId": "plot-8"
+            }
+          ]
+        },
+        {
+          "id": "plot-4",
+          "pos": {
+            "col": 1,
+            "row": -3
+          },
+          "role": "square",
+          "building": null,
+          "exits": [
+            {
+              "dir": "south",
+              "plotId": "plot-3"
+            }
+          ],
+          "stalls": []
+        },
+        {
+          "id": "plot-5",
+          "pos": {
+            "col": 0,
+            "row": -2
+          },
+          "role": "plot",
+          "building": null,
+          "exits": [
+            {
+              "dir": "south",
+              "plotId": "plot-1"
+            },
+            {
+              "dir": "east",
+              "plotId": "plot-3"
+            }
+          ]
+        },
+        {
+          "id": "plot-6",
+          "pos": {
+            "col": 2,
+            "row": -1
+          },
+          "role": "plot",
+          "building": "tannery",
+          "exits": [
+            {
+              "dir": "west",
+              "plotId": "plot-2"
+            },
+            {
+              "dir": "north",
+              "plotId": "plot-8"
+            }
+          ]
+        },
+        {
+          "id": "plot-7",
+          "pos": {
+            "col": -1,
+            "row": -1
+          },
+          "role": "plot",
+          "building": "warehouse",
+          "exits": [
+            {
+              "dir": "east",
+              "plotId": "plot-1"
+            }
+          ]
+        },
+        {
+          "id": "plot-8",
+          "pos": {
+            "col": 2,
+            "row": -2
+          },
+          "role": "plot",
+          "building": null,
+          "exits": [
+            {
+              "dir": "west",
+              "plotId": "plot-3"
+            },
+            {
+              "dir": "south",
+              "plotId": "plot-6"
+            }
+          ]
+        }
+      ],
+      "entrance": "plot-0",
+      "square": "plot-4"
+    },
+    "bindings": {
+      "gates": [],
+      "npcBindings": [],
+      "coerced": []
+    }
+  }
+}
