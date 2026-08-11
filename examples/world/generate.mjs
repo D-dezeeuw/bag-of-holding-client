@@ -285,7 +285,12 @@ const chapters = [
 installMiniCanvasPolyfill();
 const epubBlob = await buildEpub({
   title: worldSeed.name,
-  subtitle: `A world bible generated from seed ${SEED}`,
+  // Short by design: unlike the title and tagline, epub.js's cover renderer
+  // draws the subtitle as a single unwrapped line — and mini-canvas.mjs's
+  // bitmap font is monospace (wider per character than a real proportional
+  // face), so a long subtitle overflows the 600px cover here in a way it
+  // likely wouldn't in a real browser.
+  subtitle: `A world bible - seed ${SEED}`,
   lang: 'en',
   chapters,
   tone: worldSeed.tone,
