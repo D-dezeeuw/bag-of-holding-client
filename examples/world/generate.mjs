@@ -68,7 +68,14 @@ if (complete) {
 log(`world seed: "${worldSeed.name}"${worldSeedProvisional ? ' (provisional)' : ''}`);
 
 // ── 2. Bake the genesis: skeleton + lore + slices (phases A, B, D) ──────────
-const cartridge = await bakeCartridge(SEED, { complete });
+// Deliberately baked WITHOUT the live completer: this free-tier model is slow
+// and occasionally rate-limited, and the bake alone is 9 sequential calls
+// (2 continents + 7 provinces). Every one already has good deterministic
+// prose from its detail-0 hook — hydrateNode's procedural fallback, exactly
+// as designed — so the model's budget goes to the handful of calls that
+// matter more for the book: the world seed above, and the region, settlement,
+// legend and crown below.
+const cartridge = await bakeCartridge(SEED, { complete: null });
 let geo = cartridge.data.geo;
 const { continents, provinces, lore, slices } = cartridge.data;
 log(`baked: ${continents.length} continents, ${provinces.length} provinces, ${lore.eras.length} eras, ${lore.legends.length} legends, ${lore.crowns.length} crowns`);
@@ -159,9 +166,9 @@ const output = {
     region: { id: homeRegionId, provisional: regionRun.provisional, ...regionRun.result },
     settlement: { id: settlementId, provisional: settlementRun.provisional, ...settlementRun.result },
     dungeonSite: { id: dungeonId, ...dungeonSiteRun.result },
-    legend: legendRun.result,
-    crown: crownRun.result,
-    landfall: { id: landfall, ...landfallRun.result },
+    legend: { provisional: legendRun.provisional, ...legendRun.result },
+    crown: { provisional: crownRun.provisional, ...crownRun.result },
+    landfall: { id: landfall, provisional: landfallRun.provisional, ...landfallRun.result },
   },
   dungeonCrawl,
   crossing: { plan, log: crossingLog },
