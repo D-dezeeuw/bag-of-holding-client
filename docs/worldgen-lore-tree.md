@@ -177,21 +177,90 @@ that visits 12 regions across 3 provinces pays for exactly those 12
 regions. The tree adds depth without adding a single eager call; wider
 worlds cost more *disk*, not more *tokens*.
 
-## 6 · Pipeline and persistence wiring
+## 6 · Hydration templates — how a node knows what to become
 
-- **`hydrateNode(geo, nodeId, { config })`** — assembles the layer list
-  for one node from its kind (province → outline layer; region → region
-  + settlement + dungeon-site layers, grouped parallel where
-  independent), calls `runPipeline` with `lineageContext` in `ctx`,
-  returns results + the promoted geography. Checkpoint/resume comes free
-  from the pipeline's existing `onCheckpoint` / `initialResults`.
+Promotion (section 5) says *when* a node hydrates. It deliberately says
+nothing about *what* hydrating a node means — and without that contract,
+`hydrateNode` degenerates into a switch statement that guesses a layer
+list per kind, every site type gets whatever the prompt happened to
+imply, and two hydrations of similar nodes drift apart in what they
+contain. The fix is the same move the archetype tables made for
+constraints: **make the recipe data.**
+
+A template registry, keyed by node kind and subtype:
+
+```js
+HYDRATION_TEMPLATES = {
+  'continent':        { outline: {…} },
+  'province':         { outline: {…} },
+  'region':           { outline: {…}, full: [{…}, …] },
+  'site:settlement':  { full: [{…}] },
+  'site:dungeon':     { full: [{…}] },
+  'site:landmark':    { full: [{…}] },
+  'crown': {…}, 'legend': {…}, 'faction': {…},
+}
+```
+
+Each template declares five things:
+
+1. **Layers** — per target detail level, the ordered specs the pipeline
+   runs: `{ schema, tier, retries, critical, group }`. Tier reuses
+   `llm/tiers.js` routing: outlines are `tiny`-model calls, full content
+   is `medium`. The registry is where "an outline costs a small call"
+   stops being a convention and becomes enforced.
+2. **Consumes** — the ancestor facts this kind's prompt must include:
+   a settlement consumes the province climate band + settlement palette
+   + crown + worship skew; a dungeon consumes the theme (from the
+   province palette), the legend bound to it if any, and the threat
+   expression; a landmark consumes climate + era. `lineageContext`
+   reads this list and assembles *only* those facts instead of dumping
+   the whole ancestry — which is what keeps the token cost of depth
+   flat as the tree grows.
+3. **Method** — `llm | procedural | mixed`. This is where the "don't
+   pay the model for what a seed can decide" rule lives per type: a
+   dungeon is procedural first (`generateDungeon` from the site seed —
+   free, deterministic) plus one small dressing call for room prose; a
+   landmark is a table pick plus one line; a settlement is a full
+   `SETTLEMENT_SCHEMA` completion; a crown is a small structured call;
+   a legend outline is `tiny`, its payoff text is `medium` and deferred
+   until an act actually points at it.
+4. **Mints** — the child stubs a hydration must leave behind, so the
+   frontier always extends ahead of the player: a region mints its site
+   stubs; a settlement mints notable-building stubs and NPC entries; a
+   dungeon mints nothing below itself (floors are procedural); a legend
+   mints no nodes but must *bind* to existing site ids.
+5. **Post-conditions** — checks `hydrateNode` runs after schema
+   validation passes: every exit `targetId` resolves to a real node or
+   is minted as a stub in the same transaction; every NPC `factionId`
+   exists; every era tag is one of the world's eras; a dungeon bound to
+   a legend actually contains the legend's payoff hook. Schema
+   validation catches *shape*; post-conditions catch **dangling
+   references** — the exact way canon forks when the model invents a
+   place the tree doesn't have.
+
+Templates are data, host-overridable exactly like the archetype tables
+(`hydrateNode(geo, id, { templates })`), so the genre re-skin story
+stays intact — and the default set's strings go through the
+`legal.test.js` sweep like every other table. A custom site type (a
+host adding `site:shipwreck`) is a registry entry, not a fork of the
+pipeline.
+
+## 7 · Pipeline and persistence wiring
+
+- **`hydrateNode(geo, nodeId, { config, templates })`** — look up the
+  node's template, build the layer list for the target detail, call
+  `runPipeline` with the template's `consumes` list resolved through
+  `lineageContext` in `ctx`, run post-conditions, mint the declared
+  stubs, return results + the promoted geography. Checkpoint/resume
+  comes free from the pipeline's existing `onCheckpoint` /
+  `initialResults`.
 - **Canon lives in the ledger.** Hydration output is written as patches
   (`kind: 'canon'`, `source: 'worldgen'`) over the base world —
   `ledger/patch.js` (base ⊕ patches ⊕ views, conflict detection,
   compaction) was built for exactly this shape. Play writes are patches
   too; `mechanicalPathsOf` already separates what the kernel owns.
 
-## 7 · Pre-generated worlds — cartridges and MCP playback
+## 8 · Pre-generated worlds — cartridges and MCP playback
 
 The ledger split above is what makes shared worlds nearly free:
 
@@ -223,7 +292,7 @@ The ledger split above is what makes shared worlds nearly free:
   would swamp the 69 kB package); a catalog repo or GitHub release
   assets carry them.
 
-## 8 · Phases
+## 9 · Phases
 
 Each phase is one branch → PR → merge, tests green, in this order —
 every phase is independently shippable and the ones after C are
@@ -234,7 +303,8 @@ parallel-friendly:
   shims. *Fixes the frozen-tomb bug on its own.* (minor bump)
 - **B · Lore entities** — crown/legend/era schemas + genesis stubs +
   `legal.test.js` coverage of every new table. (minor)
-- **C · Hydration** — sites as nodes, `lineageContext`, `hydrateNode`,
+- **C · Hydration** — sites as nodes, the template registry with
+  consumes/mints/post-conditions, `lineageContext`, `hydrateNode`,
   promotion triggers, ledger-canon wiring. (minor)
 - **D · Cartridges** — bake script, envelope format, catalog layout.
   (minor)
