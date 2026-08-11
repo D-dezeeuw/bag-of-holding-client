@@ -225,6 +225,18 @@ export const BAND_SETTLEMENTS = Object.freeze({
   mire:      ['stilt village', 'herbalist commune', 'druid grove', 'peat-cutter hamlet'],
 });
 
+// Honest danger, telegraphed rather than scaled (doc 18 §9): each continent
+// draws a menace tier at genesis and keeps it. Signposting only — the tier
+// reaches prompts through menaceHints, never a stat block.
+export const MENACE_TIERS = Object.freeze(['sheltered', 'uneasy', 'dangerous', 'ruinous']);
+
+const MENACE_SIGNPOSTS = Object.freeze({
+  sheltered: 'Travellers speak of it fondly; the roads are patrolled and the inns are full.',
+  uneasy: 'Traders still go, but they go armed, and they leave before dark.',
+  dangerous: 'Sailors ask double to land there and wait offshore rather than stay the night.',
+  ruinous: 'Nobody sells maps of it. The few who returned do not talk about it.',
+});
+
 // How the world's one threat manifests on a given continent — same threat,
 // local clothes. Generic shapes; the model dresses them.
 export const THREAT_EXPRESSIONS = Object.freeze([
@@ -293,6 +305,10 @@ export function deriveBlueprint(parentBp, nodeSeed, scope, opts = {}) {
         godDomains: parentBp?.godDomains ?? null,
         threatExpression: pick(THREAT_EXPRESSIONS, r),
         namingCulture: culture ?? null,
+        // How dangerous this landmass runs. NEVER a stat modifier — the world
+        // does not scale to the party. Expressed only through signposting
+        // (hooks, rumors, what the sailors refuse to say); see menaceHints.
+        menace: pick(MENACE_TIERS, r),
       };
 
     case 'province': {
@@ -371,6 +387,14 @@ export function beatsHints(bp) {
 export function factionsHints(bp) {
   return bp?.factionSlots?.length
     ? `\n\nCreate exactly ${bp.factionSlots.length} factions using these archetypes:\n${bp.factionSlots.map((f, i) => `${i + 1}. A "${f.type}" faction (${f.desc})`).join('\n')}\n\nEach faction MUST reference the world's red thread and primary threat.` : '';
+}
+
+// Menace reaches prose as what people say, never as numbers. Rendered into
+// rumor and outline prompts for anywhere on the continent.
+export function menaceHints(slice) {
+  if (!slice?.menace) return '';
+  const signpost = MENACE_SIGNPOSTS[slice.menace] ?? '';
+  return `\n\nHow dangerous this land runs: ${slice.menace}. ${signpost} Telegraph this danger honestly through rumor and detail — never state a tier or adjust any creature.`;
 }
 
 // The scoped variants: pass the node's derived slice as the second argument

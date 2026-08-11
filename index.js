@@ -50,8 +50,8 @@ export { pick, pickN, shuffle, randInt, mintSeed, mulberry32 } from './src/world
 export { TONES, isTone } from './src/worldgen/tones.js';
 export {
   buildBlueprint, deriveBlueprint, blueprintContext, worldSeedConstraints,
-  beatsHints, factionsHints, regionHints, settlementHints,
-  THEME_CLIMATES, BAND_SETTLEMENTS, THREAT_EXPRESSIONS,
+  beatsHints, factionsHints, regionHints, settlementHints, menaceHints,
+  THEME_CLIMATES, BAND_SETTLEMENTS, THREAT_EXPRESSIONS, MENACE_TIERS,
 } from './src/worldgen/blueprint.js';
 export { runPipeline, ensureDigest, withRetry, PipelineError } from './src/worldgen/pipeline.js';
 export {
@@ -63,6 +63,7 @@ export {
   HYDRATION_TEMPLATES, hydrateNode, ensureLineage, lineageContext,
   gazetteerOf, coerceBeatLocation, runPostConditions,
   mintProvinceRegions, mintRegionSites, promoteObserved,
+  portAnchorOf, mintLandfall, whileYouWereGone,
 } from './src/worldgen/hydrate.js';
 export {
   bakeCartridge, mountCartridge, catalogEntry,
@@ -113,6 +114,8 @@ export {
   beginTravel, stepTravel, isTravelDone, pickEncounter, runTravel,
   TRAVEL_SEGMENTS_MIN, TRAVEL_SEGMENTS_MAX, ENCOUNTER_CHANCE, DISCOVERY_CHANCE, DISCOVERY_TYPES,
 } from './src/travel/fsm.js';
+export { TRAVEL_MODES, LANDFALL_HOOKS } from './src/travel/modes.js';
+export { planJourney, legTravelOptions, applyTravelClocks } from './src/travel/planner.js';
 
 // ── Output (browser-only: ZIP byte-core is node-testable, EPUB needs a canvas) ───
 export { crc32, zipBytes, buildZip } from './src/output/zip.js';

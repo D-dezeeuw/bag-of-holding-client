@@ -45,7 +45,8 @@ describe('public entry point', () => {
       dungeon: ['generateDungeon', 'DUNGEON_OVERLAYS'],
       narrative: ['currentBeat', 'makeAct', 'adjustReputation', 'makeClock'],
       settlement: ['resolvePurchase', 'makeQuest', 'pushDialogue'],
-      travel: ['beginTravel', 'stepTravel', 'runTravel'],
+      travel: ['beginTravel', 'stepTravel', 'runTravel', 'planJourney', 'TRAVEL_MODES', 'legTravelOptions', 'applyTravelClocks'],
+      crossings: ['portAnchorOf', 'mintLandfall', 'whileYouWereGone', 'MENACE_TIERS', 'menaceHints'],
       output: ['buildZip', 'buildEpub', 'crc32'],
       persistence: ['wrapEnvelope', 'loadEnvelope', 'openCold', 'splitSave'],
     };
