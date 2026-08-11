@@ -35,16 +35,23 @@ export const DEFAULT_TABLES = Object.freeze({
     'theocratic tyranny', 'merchant republic', 'nomadic wasteland',
     'underwater dominion', 'sky archipelago', 'prison realm',
     'dream-touched lands', 'clockwork civilization', 'plague aftermath',
-    'dragon age', 'fey-mortal border', 'underdark ascent',
+    'dragon age', 'fey-mortal border', 'subterranean ascent',
   ],
 
+  // Threats stay generic or SRD-listed. Five entries here used to name
+  // Product Identity creatures the kernel's docs/legal.md rules out by name
+  // (mind flayer, beholder, yuan-ti, githyanki, modron); two more leaned on
+  // setting-specific plane names (Feywild, Shadowfell). Each is replaced by
+  // the threat *shape* it was reaching for, which the model can dress however
+  // the tone wants. Lich, vampire, hag, djinni, kraken, tarrasque and aboleth
+  // are SRD monsters and stay.
   threatTypes: [
     'undead plague', 'demonic incursion', 'dragon tyranny',
-    'mind flayer hive', 'lich ritual', 'fey wild breach',
-    'orc horde', 'cult ascension', 'elemental chaos',
-    'vampire court', 'abyssal rift', 'beholder conspiracy',
-    'yuan-ti infiltration', 'kraken awakening', 'tarrasque stirring',
-    'shadow fell bleed', 'modron march', 'githyanki raid',
+    'psionic hive', 'lich ritual', 'fey realm breach',
+    'orc horde', 'cult ascension', 'elemental upheaval',
+    'vampire court', 'abyssal rift', 'aberrant conspiracy',
+    'serpentfolk infiltration', 'kraken awakening', 'tarrasque stirring',
+    'shadow-realm bleed', 'clockwork legion march', 'astral raider fleet',
     'aboleth domination', 'werewolf curse', 'hag coven',
     'djinn wish gone wrong', 'titan prison cracking', 'void entity',
   ],
@@ -124,27 +131,34 @@ export const DEFAULT_TABLES = Object.freeze({
     'petrified giant', 'living dungeon', 'dream prison',
   ],
 
+  // Epithets, not names. This table used to list real deities (Kelemvor,
+  // Mystra, Lolth, Pelor …) as `exemplars`, which is Product Identity from
+  // published settings — see docs/legal.md in the kernel repo. It also worked
+  // against the generator: naming a deity invites the model to reproduce that
+  // deity, while an epithet hands it a *role* and leaves the name to invent.
+  // Only `epithets[0]` reaches the prompt; the rest are alternates for hosts
+  // that want to vary the anchor.
   godDomains: [
-    { domain: 'death',     exemplars: ['Kelemvor', 'Myrkul', 'The Raven Queen'] },
-    { domain: 'war',       exemplars: ['Tempus', 'Bane', 'Gruumsh'] },
-    { domain: 'nature',    exemplars: ['Silvanus', 'Mielikki', 'Chauntea'] },
-    { domain: 'trickery',  exemplars: ['Mask', 'Cyric', 'Lolth'] },
-    { domain: 'light',     exemplars: ['Lathander', 'Pelor', 'Helm'] },
-    { domain: 'knowledge', exemplars: ['Oghma', 'Mystra', 'Azuth'] },
-    { domain: 'tempest',   exemplars: ['Talos', 'Umberlee', 'Kord'] },
-    { domain: 'forge',     exemplars: ['Moradin', 'Gond', 'Hephaestus'] },
-    { domain: 'life',      exemplars: ['Ilmater', 'Lliira', 'Boldrei'] },
-    { domain: 'grave',     exemplars: ['Jergal', 'Anubis', 'Wee Jas'] },
-    { domain: 'order',     exemplars: ['Tyr', 'Pholtus', 'Aureon'] },
-    { domain: 'twilight',  exemplars: ['Selune', 'Sehanine', 'Celestian'] },
-    { domain: 'arcana',    exemplars: ['Mystra', 'Corellon', 'Boccob'] },
-    { domain: 'vengeance', exemplars: ['Hoar', 'Erythnul', 'Nemesis'] },
-    { domain: 'chaos',     exemplars: ['Cyric', 'Lolth', 'Tharizdun'] },
-    { domain: 'sea',       exemplars: ['Umberlee', 'Procan', 'Deep Sashelas'] },
-    { domain: 'hunting',   exemplars: ['Malar', 'Ehlonna', 'Obad-Hai'] },
-    { domain: 'dreams',    exemplars: ['Sehanine', 'Morpheus', 'Dal Quor'] },
-    { domain: 'madness',   exemplars: ['Tharizdun', 'Cyric', 'Hadar'] },
-    { domain: 'beauty',    exemplars: ['Sune', 'Hanali Celanil', 'Aphrodite'] },
+    { domain: 'death',     epithets: ['the one who judges every life at its end', 'the ferryman of the last river', 'the keeper of names no longer spoken'] },
+    { domain: 'war',       epithets: ['the first to raise a banner', 'the god who counts the fallen and calls it worship', 'the whetstone of nations'] },
+    { domain: 'nature',    epithets: ['the green that outlives every empire', 'the mother of root and antler', 'the turning of the seasons made will'] },
+    { domain: 'trickery',  epithets: ['the face behind every face', 'the patron of the useful lie', 'the thief who stole the first secret'] },
+    { domain: 'light',     epithets: ['the first dawn and every one after', 'the lamp that will not be smothered', 'the keeper of the watchfire'] },
+    { domain: 'knowledge', epithets: ['the librarian of things not yet known', 'the god who remembers what mortals forget', 'the asker of the next question'] },
+    { domain: 'tempest',   epithets: ['the voice in the thunderhead', 'the breaker of masts', 'the storm that answers no prayer'] },
+    { domain: 'forge',     epithets: ['the hammer that shaped the world’s bones', 'the patron of honest work', 'the keeper of the first flame'] },
+    { domain: 'life',      epithets: ['the breath given freely', 'the mender of what should not have broken', 'the god who suffers alongside'] },
+    { domain: 'grave',     epithets: ['the warden of rest undisturbed', 'the one who closes the door behind the dead', 'the enemy of the unquiet'] },
+    { domain: 'order',     epithets: ['the scale that does not tip', 'the writer of the first law', 'the god of the kept oath'] },
+    { domain: 'twilight',  epithets: ['the guardian of the hour between', 'the shepherd of the moon', 'the comfort at the edge of dark'] },
+    { domain: 'arcana',    epithets: ['the pattern beneath the world', 'the first to speak a word that changed a thing', 'the keeper of the deep grammar'] },
+    { domain: 'vengeance', epithets: ['the debt that is always collected', 'the god who does not forget a wrong', 'the oath sworn over a grave'] },
+    { domain: 'chaos',     epithets: ['the unmaker of settled things', 'the god with no fixed name', 'the crack in every certainty'] },
+    { domain: 'sea',       epithets: ['the depth that keeps what it takes', 'the tide’s own temper', 'the god sailors bargain with'] },
+    { domain: 'hunting',   epithets: ['the patient tracker', 'the god of the clean kill', 'the one who runs beside the pack'] },
+    { domain: 'dreams',    epithets: ['the shepherd of sleeping minds', 'the keeper of the door behind the eyes', 'the god of what is only true at night'] },
+    { domain: 'madness',   epithets: ['the whisper that will not stop', 'the god of the thought you cannot unthink', 'the wound in reason'] },
+    { domain: 'beauty',    epithets: ['the god of things worth keeping', 'the first love and every echo', 'the patron of what makes life bearable'] },
   ],
 
   buildingTypes: [
@@ -202,7 +216,11 @@ export function blueprintContext(bp) {
   if (bp.climate)        parts.push(`Climate: ${bp.climate}`);
   if (bp.dungeonTheme)   parts.push(`Dungeon theme: ${bp.dungeonTheme}`);
   if (bp.godDomains?.length) {
-    parts.push(`God domains to draw from: ${bp.godDomains.map(g => `${g.domain} (e.g. ${g.exemplars[0]})`).join(', ')}`);
+    parts.push(`God domains to draw from: ${bp.godDomains.map(g => `${g.domain} — ${g.epithets[0]}`).join('; ')}`);
+    // Cleaning the table only fixes our half. A model asked for "a god of
+    // death" will happily answer with one it read about, so the constraint
+    // has to say so out loud.
+    parts.push('Invent original names for these gods. Do not reuse deities, characters, or place names from published fantasy settings.');
   }
   if (bp.factionSlots?.length) {
     parts.push(`Faction archetypes: ${bp.factionSlots.map(f => `${f.type} — ${f.desc}`).join('; ')}`);

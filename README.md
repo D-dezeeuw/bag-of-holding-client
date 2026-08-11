@@ -220,6 +220,23 @@ any genre.
 npm test     # node --test tests/*.test.js
 ```
 
+## Content hygiene
+
+`DEFAULT_TABLES` ships archetype names that end up inside prompts, so it
+follows the same rule as the rules kernel
+([docs/legal.md](https://github.com/D-dezeeuw/bag-of-holding/blob/main/docs/legal.md)):
+SRD 5.2 content by its real name, generic terms, or invented names — nothing
+that belongs to a published setting. Gods are described by **epithet** rather
+than named (`death — "the one who judges every life at its end"`), which keeps
+Product Identity out and steers better besides: an epithet gives the model a
+role to name, where a real deity invites it to reproduce that deity.
+`blueprintContext` also tells the model outright to invent original names,
+because a clean table alone does not stop it reaching for one it has read.
+
+`tests/legal.test.js` enforces this over the tables, the dungeon overlays, and
+every rendered prompt constraint across 250 seeds. If you swap in your own
+`tables`, that guard covers the defaults only — yours are your own to check.
+
 ## License
 
 MPL-2.0 — matching the rules kernel (file-level copyleft).
