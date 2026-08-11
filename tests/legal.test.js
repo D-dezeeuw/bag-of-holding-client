@@ -26,7 +26,7 @@ import { DUNGEON_OVERLAYS } from '../src/dungeon/generate.js';
 import { mintLore, ERA_NAMES, LEGEND_TITLE_A, LEGEND_TITLE_B, CROWN_TITLES, LEGITIMACIES } from '../src/worldgen/lore.js';
 import { mintWorldSkeleton } from '../src/worldgen/skeleton.js';
 import { TRAVEL_MODES, LANDFALL_HOOKS } from '../src/travel/modes.js';
-import { MENACE_TIERS, menaceHints } from '../src/worldgen/blueprint.js';
+import { MENACE_TIERS, menaceHints, MENACE_SIGNPOSTS } from '../src/worldgen/blueprint.js';
 import { ROLE_BUILDINGS } from '../src/layout/settlement.js';
 import { cityLayout } from '../src/layout/settlement.js';
 
@@ -100,9 +100,20 @@ describe('content hygiene', () => {
       ...offendersIn(TRAVEL_MODES, 'TRAVEL_MODES'),
       ...offendersIn(LANDFALL_HOOKS, 'LANDFALL_HOOKS'),
       ...offendersIn(MENACE_TIERS, 'MENACE_TIERS'),
+      ...offendersIn(MENACE_SIGNPOSTS, 'MENACE_SIGNPOSTS'),
       ...MENACE_TIERS.flatMap(m => offendersIn(menaceHints({ menace: m }), `menaceHints(${m})`)),
     ];
     assert.deepEqual(bad, [], `forbidden names in travel tables:\n${bad.join('\n')}`);
+  });
+
+  // MENACE_SIGNPOSTS is the reader-safe half of menaceHints — it must cover
+  // every tier (a book chapter can't fall back to nothing) and must never
+  // carry menaceHints' generator-facing instruction clause.
+  it('MENACE_SIGNPOSTS covers every tier and stays reader-facing', () => {
+    for (const tier of MENACE_TIERS) {
+      assert.ok(MENACE_SIGNPOSTS[tier], `no signpost for ${tier}`);
+      assert.doesNotMatch(MENACE_SIGNPOSTS[tier], /never state a tier|adjust any creature/i);
+    }
   });
 
   it('ships no product-identity names in the layout tables', () => {

@@ -230,7 +230,11 @@ export const BAND_SETTLEMENTS = Object.freeze({
 // reaches prompts through menaceHints, never a stat block.
 export const MENACE_TIERS = Object.freeze(['sheltered', 'uneasy', 'dangerous', 'ruinous']);
 
-const MENACE_SIGNPOSTS = Object.freeze({
+// The reader-facing half of menaceHints — one flavor sentence per tier, safe
+// to quote directly in narration. menaceHints() adds a second, meta clause
+// ("...never state a tier or adjust any creature") that steers a GENERATOR;
+// it must never reach a player-facing page. Use this export there instead.
+export const MENACE_SIGNPOSTS = Object.freeze({
   sheltered: 'Travellers speak of it fondly; the roads are patrolled and the inns are full.',
   uneasy: 'Traders still go, but they go armed, and they leave before dark.',
   dangerous: 'Sailors ask double to land there and wait offshore rather than stay the night.',
