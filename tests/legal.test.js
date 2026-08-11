@@ -27,6 +27,8 @@ import { mintLore, ERA_NAMES, LEGEND_TITLE_A, LEGEND_TITLE_B, CROWN_TITLES, LEGI
 import { mintWorldSkeleton } from '../src/worldgen/skeleton.js';
 import { TRAVEL_MODES, LANDFALL_HOOKS } from '../src/travel/modes.js';
 import { MENACE_TIERS, menaceHints } from '../src/worldgen/blueprint.js';
+import { ROLE_BUILDINGS } from '../src/layout/settlement.js';
+import { cityLayout } from '../src/layout/settlement.js';
 
 // Product Identity creatures named in docs/legal.md, plus the setting and
 // character names it rules out, plus the deity roster this table used to carry.
@@ -101,6 +103,14 @@ describe('content hygiene', () => {
       ...MENACE_TIERS.flatMap(m => offendersIn(menaceHints({ menace: m }), `menaceHints(${m})`)),
     ];
     assert.deepEqual(bad, [], `forbidden names in travel tables:\n${bad.join('\n')}`);
+  });
+
+  it('ships no product-identity names in the layout tables', () => {
+    const bad = [
+      ...offendersIn(ROLE_BUILDINGS, 'ROLE_BUILDINGS'),
+      ...offendersIn(cityLayout(7), 'cityLayout(7)'),
+    ];
+    assert.deepEqual(bad, [], `forbidden names in layout tables:\n${bad.join('\n')}`);
   });
 
   it('ships no product-identity names in the lore tables or minted lore', () => {

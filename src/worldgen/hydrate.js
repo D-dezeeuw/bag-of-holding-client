@@ -106,6 +106,19 @@ export const HYDRATION_TEMPLATES = Object.freeze({
       digest: `${node.name} — a landing where no road ever led`,
     }),
   },
+  'site:district': {
+    // One quarter of a city: its own settlement layout, laid lazily on entry
+    // (the LOD ladder recursing one tier down). Procedural skeleton; the
+    // model dresses plots when the district hydrates fully.
+    full: { schema: null, tier: 'tiny', retries: 0 },
+    consumes: ['settlementType', 'climate'],
+    method: 'procedural',
+    fallback: (node) => ({
+      id: node.id, name: node.name,
+      quarter: node.quarter ?? null,
+      digest: `${node.name} — a quarter not yet walked`,
+    }),
+  },
   'site:landmark': {
     full: { schema: null, tier: 'tiny', retries: 0 },
     consumes: ['climate'],
