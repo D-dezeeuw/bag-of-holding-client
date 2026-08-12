@@ -35,7 +35,18 @@ const HOOKS = [
 // regions inside a province inherit its band instead of rerolling at random.
 export const CLIMATE_BANDS = ['temperate', 'arid', 'frozen', 'tropical', 'volcanic', 'coastal', 'highland', 'mire'];
 
-const continentName = (rng) => `${pick(CONTINENT_A, rng)}${pick(CONTINENT_B, rng)}`;
+// A host can supply its own banks — a setting is largely its proper nouns, and
+// "Veldrath" belongs to a different world than "Kau Lung". Partial sets fill in
+// from the defaults so a host can re-skin continents without restating
+// provinces.
+function banks(syllables) {
+  return {
+    cA: syllables?.continentPrefixes ?? CONTINENT_A,
+    cB: syllables?.continentSuffixes ?? CONTINENT_B,
+    pA: syllables?.provincePrefixes  ?? PROVINCE_A,
+    pB: syllables?.provinceSuffixes  ?? PROVINCE_B,
+  };
+}
 
 // Exported so scoped blueprints can mint a matching naming culture without
 // duplicating the syllable banks.
@@ -49,8 +60,9 @@ export const SYLLABLES = Object.freeze({
 // shapes the same world. Returns { geo, continents, provinces } where the
 // lists are ids in minting order (the first province of the first continent
 // is the conventional starting province).
-export function mintWorldSkeleton(seed, { continents = null, provincesPer = null } = {}) {
+export function mintWorldSkeleton(seed, { continents = null, provincesPer = null, syllables = null } = {}) {
   const rng = mulberry32((seed ?? 1) >>> 0);
+  const { cA, cB, pA, pB } = banks(syllables);
   let geo = emptyGeography();
   const continentIds = [];
   const provinceIds = [];
@@ -61,7 +73,7 @@ export function mintWorldSkeleton(seed, { continents = null, provincesPer = null
     const cRng  = mulberry32(cSeed);
     const cId   = `continent-${c}`;
     geo = addNode(geo, {
-      id: cId, name: continentName(cRng), kind: 'continent',
+      id: cId, name: `${pick(cA, cRng)}${pick(cB, cRng)}`, kind: 'continent',
       seed: cSeed, hook: pick(HOOKS, cRng), stub: true, detail: 0, parent: null,
     });
     continentIds.push(cId);
@@ -70,8 +82,8 @@ export function mintWorldSkeleton(seed, { continents = null, provincesPer = null
     // Naming culture: each continent commits to a syllable subset, so names
     // on one landmass rhyme with each other and not with the neighbour's.
     // Recorded on the continent node for hints and later landfall minting.
-    const prefixes = shuffle(PROVINCE_A, cRng).slice(0, 5);
-    const suffixes = shuffle(PROVINCE_B, cRng).slice(0, 5);
+    const prefixes = shuffle(pA, cRng).slice(0, 5);
+    const suffixes = shuffle(pB, cRng).slice(0, 5);
     geo = patchNode(geo, cId, { nameParts: { prefixes, suffixes } });
     // Climate spread: deal bands without replacement so a 4-province
     // continent gets 4 different bands instead of `temperate` three times.

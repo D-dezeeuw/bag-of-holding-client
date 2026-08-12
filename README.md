@@ -108,6 +108,15 @@ import { buildBlueprint, worldSeedConstraints, runPipeline,
 
 const blueprint = buildBlueprint(1234);     // deterministic archetype choices for this seed
 
+// Re-skinning the genre is a partial table override — everything you do not
+// name keeps coming from DEFAULT_TABLES:
+const cyberpunk = buildBlueprint(1234, { tables: {
+  dungeonThemes: ['server-crypt', 'flooded sublevel', 'tong den'],
+  themeClimates: { 'server-crypt': ['highland'], 'flooded sublevel': ['coastal', 'mire'], 'tong den': ['coastal'] },
+} });
+// ...and the layers above the region can carry their own naming culture:
+// mintWorldSkeleton(1234, { syllables: { continentPrefixes: [...], ... } })
+
 const world = await runPipeline([
   { name: 'world', critical: true, retries: 1,
     generate: (_digests, bp) => chatCompletion(config, {

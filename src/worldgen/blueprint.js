@@ -256,7 +256,26 @@ export const THREAT_EXPRESSIONS = Object.freeze([
 
 // ─── Blueprint builder ────────────────────────────────────────────────────────
 
-export function buildBlueprint(seed, { tables = DEFAULT_TABLES, rng } = {}) {
+// A host's `tables` is a PARTIAL override, merged over the defaults. It used to
+// be all-or-nothing: a host replacing only `dungeonThemes` — the normal case
+// for a setting re-skin, where the genre changes but the tone vocabulary does
+// not — got `pick(undefined)` and a TypeError inside the factory. Arrays
+// replace wholesale (a host's themes are its themes, not its themes plus two
+// dozen of ours); objects merge key by key (so one climate band's settlements
+// can change without restating the other seven).
+export function mergeTables(overrides, defaults = DEFAULT_TABLES) {
+  if (!overrides || overrides === defaults || !Object.keys(overrides).length) return defaults;
+  const out = { ...defaults };
+  for (const [key, val] of Object.entries(overrides)) {
+    if (val == null) continue;
+    if (Array.isArray(val) || typeof val !== 'object') { out[key] = val; continue; }
+    out[key] = { ...(defaults?.[key] ?? {}), ...val };
+  }
+  return out;
+}
+
+export function buildBlueprint(seed, { tables: rawTables = DEFAULT_TABLES, rng } = {}) {
+  const tables  = mergeTables(rawTables);
   const numSeed = typeof seed === 'number' ? seed : hashString(seed ?? String(Date.now()));
   const r = rng ?? mulberry32(numSeed);
 
@@ -287,11 +306,19 @@ export function buildBlueprint(seed, { tables = DEFAULT_TABLES, rng } = {}) {
 // continent's minted name culture) are passed in via opts so the slice and
 // the skeleton node always agree.
 
-const themesForBand = (band, tables) =>
-  (tables.dungeonThemes ?? []).filter(t => (THEME_CLIMATES[t] ?? []).includes(band));
+// Which themes suit a climate band. The map is a DEFAULT, not a law: a host
+// that replaces `dungeonThemes` wholesale (a setting pack — every theme in a
+// vertical city is a floor, a sublevel or a shaft, and none of them are in
+// THEME_CLIMATES) has to be able to say where its own themes belong, or the
+// filter returns nothing and every province falls back to the full list.
+const themesForBand = (band, tables) => {
+  const map = tables.themeClimates ?? THEME_CLIMATES;
+  return (tables.dungeonThemes ?? []).filter(t => (map[t] ?? []).includes(band));
+};
 
 export function deriveBlueprint(parentBp, nodeSeed, scope, opts = {}) {
-  const { tables = DEFAULT_TABLES, rng, climate = null, culture = null } = opts;
+  const { tables: rawTables = DEFAULT_TABLES, rng, climate = null, culture = null } = opts;
+  const tables = mergeTables(rawTables);
   const numSeed = typeof nodeSeed === 'number' ? nodeSeed : hashString(String(nodeSeed ?? 0));
   const r = rng ?? mulberry32(numSeed >>> 0);
 
@@ -316,17 +343,23 @@ export function deriveBlueprint(parentBp, nodeSeed, scope, opts = {}) {
       };
 
     case 'province': {
-      const band = climate ?? pick(Object.keys(BAND_SETTLEMENTS), r);
+      const bandSettlements = tables.bandSettlements ?? BAND_SETTLEMENTS;
+      const band = climate ?? pick(Object.keys(bandSettlements), r);
+      // A band no theme claims must still get a palette: an empty one produces
+      // `pick([])` → undefined at the region tier, i.e. a dungeon with no
+      // theme. Falling back to the whole list is a worse fit and a working
+      // dungeon, which is the right trade.
       const permitted = themesForBand(band, tables);
-      const paletteSize = Math.min(permitted.length, 2 + Math.floor(r() * 2)); // 2–3
+      const pool = permitted.length ? permitted : (tables.dungeonThemes ?? []);
+      const paletteSize = Math.min(pool.length, 2 + Math.floor(r() * 2)); // 2–3
       return {
         scope: 'province', seed: numSeed,
         tone: parentBp?.tone ?? null,
         threatExpression: parentBp?.threatExpression ?? null,
         namingCulture: parentBp?.namingCulture ?? null,
         climate: band,
-        dungeonThemePalette: pickN(permitted, Math.max(1, paletteSize), r),
-        settlementPalette: BAND_SETTLEMENTS[band] ?? BAND_SETTLEMENTS.temperate,
+        dungeonThemePalette: pickN(pool, Math.max(1, paletteSize), r),
+        settlementPalette: bandSettlements[band] ?? Object.values(bandSettlements)[0] ?? BAND_SETTLEMENTS.temperate,
         worshipSkew: pickN(
           (parentBp?.godDomains ?? tables.godDomains).map(g => g.domain),
           1 + Math.floor(r() * 2), r),
