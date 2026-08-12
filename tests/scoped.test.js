@@ -12,7 +12,7 @@ import {
   buildBlueprint, deriveBlueprint, regionHints, settlementHints,
   THEME_CLIMATES, BAND_SETTLEMENTS, DEFAULT_TABLES, mergeTables,
 } from '../src/worldgen/blueprint.js';
-import { mintWorldSkeleton, CLIMATE_BANDS } from '../src/worldgen/skeleton.js';
+import { mintWorldSkeleton, CLIMATE_BANDS, STUB_HOOKS } from '../src/worldgen/skeleton.js';
 
 const chain = (seed) => {
   const world = deriveBlueprint(null, seed, 'world');
@@ -242,5 +242,28 @@ describe('partial table overrides', () => {
     assert.equal(mergeTables({}), DEFAULT_TABLES);
     assert.equal(mergeTables(DEFAULT_TABLES), DEFAULT_TABLES);
     assert.deepEqual(buildBlueprint(999, { tables: {} }), buildBlueprint(999));
+  });
+});
+
+describe('host-supplied stub hooks', () => {
+  const HOOKS = ['the lifts have not run there in a year', 'the archive lists it twice, differently'];
+
+  it('names every stub from the injected pool', () => {
+    const { geo } = mintWorldSkeleton(4242, { continents: 3, provincesPer: 3, hooks: HOOKS });
+    for (const node of Object.values(geo.nodes)) {
+      assert.ok(HOOKS.includes(node.hook), `'${node.hook}' is not from the injected pool`);
+    }
+  });
+
+  it('falls back to the library pool when none is given, or one is empty', () => {
+    for (const opts of [{}, { hooks: [] }, { hooks: null }]) {
+      const { geo } = mintWorldSkeleton(7, { continents: 2, provincesPer: 2, ...opts });
+      for (const node of Object.values(geo.nodes)) assert.ok(STUB_HOOKS.includes(node.hook));
+    }
+  });
+
+  it('leaves the default world byte-identical', () => {
+    assert.deepEqual(mintWorldSkeleton(1234, { continents: 2, provincesPer: 3, hooks: null }),
+                     mintWorldSkeleton(1234, { continents: 2, provincesPer: 3 }));
   });
 });

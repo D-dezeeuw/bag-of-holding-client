@@ -70,7 +70,7 @@ export {
   bakeCartridge, mountCartridge, catalogEntry,
   CARTRIDGE_VERSION, CARTRIDGE_MIGRATIONS,
 } from './src/worldgen/cartridge.js';
-export { mintWorldSkeleton, adoptFlatWorld, CLIMATE_BANDS, SYLLABLES } from './src/worldgen/skeleton.js';
+export { mintWorldSkeleton, adoptFlatWorld, CLIMATE_BANDS, SYLLABLES, STUB_HOOKS } from './src/worldgen/skeleton.js';
 export {
   WORLD_SEED_SCHEMA, REGION_SCHEMA, NPC_SCHEMA, FACTION_SCHEMA,
   BEAT_SCHEMA, RED_THREAD_SCHEMA, FACTIONS_SCHEMA, SETTLEMENT_SCHEMA,

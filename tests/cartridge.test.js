@@ -123,3 +123,70 @@ describe('catalogEntry', () => {
     assert.ok(e.threat);
   });
 });
+
+// ─── Settings (the host's genre, baked in) ───────────────────────────────────
+//
+// A cartridge with no setting is high fantasy, which is fine until a host has
+// eight genres and a catalog that cannot tell them apart. The bake has to
+// honour the host's tables, banks and hooks everywhere the world's vocabulary
+// is decided, and record WHICH setting it was — the tables themselves stay
+// with the host that owns them.
+
+describe('a cartridge remembers the setting it was baked under', () => {
+  const SETTING = {
+    id: 'neon-stacks',
+    tables: {
+      dungeonThemes: ['server-crypt', 'flooded sublevel'],
+      themeClimates: { 'server-crypt': ['highland', 'arid', 'frozen', 'volcanic'],
+                       'flooded sublevel': ['coastal', 'mire', 'tropical', 'temperate'] },
+    },
+    syllables: {
+      continentPrefixes: ['Sau', 'Rin', 'Hoa', 'Kem', 'Yun', 'Bau', 'Sei', 'Lor'],
+      continentSuffixes: ['kara', 'veyn', 'marr', 'tsun', 'daat', 'reth', 'sai', 'luun'],
+      provincePrefixes:  ['Low', 'Ash', 'Wire', 'Rain', 'Iron', 'Deck', 'Sump', 'Mast', 'Vent', 'Coil'],
+      provinceSuffixes:  ['stack', 'deck', 'shaft', 'tier', 'row', 'lift', 'pier', 'hold', 'rung', 'span'],
+    },
+    hooks: ['the lifts run there and the call buttons are painted over'],
+  };
+
+  it('names every layer from the host’s banks, not the library’s', async () => {
+    const cart = await bakeCartridge(4242, { setting: SETTING });
+    for (const node of Object.values(cart.data.geo.nodes)) {
+      if (node.kind === 'continent') {
+        assert.ok(SETTING.syllables.continentPrefixes.some(p => node.name.startsWith(p)), node.name);
+      }
+      if (node.kind !== 'continent') {
+        assert.ok(SETTING.syllables.provincePrefixes.some(p => node.name.startsWith(p)),
+          `${node.kind} '${node.name}' kept a library name`);
+      }
+      if (node.kind !== 'region') assert.equal(node.hook, SETTING.hooks[0]);
+    }
+  });
+
+  it('rolls the blueprint inside the host’s tables', async () => {
+    const cart = await bakeCartridge(4242, { setting: SETTING });
+    for (const [id, slice] of Object.entries(cart.data.slices)) {
+      for (const theme of slice.dungeonThemePalette ?? []) {
+        assert.ok(SETTING.tables.dungeonThemes.includes(theme), `${id} rolled '${theme}'`);
+      }
+    }
+  });
+
+  it('records the setting id, and the catalog says which world is which', async () => {
+    const cart = await bakeCartridge(4242, { setting: SETTING });
+    assert.equal(cart.data.settingId, 'neon-stacks');
+    assert.equal(catalogEntry(cart).setting, 'neon-stacks');
+    // Only the id: a cartridge that carried the tables would be claiming to be
+    // their source of truth, and they belong to the host.
+    assert.equal(cart.data.tables, undefined);
+    assert.equal(cart.data.syllables, undefined);
+  });
+
+  it('bakes exactly as before when no setting is given', async () => {
+    const plain = await bakeCartridge(99);
+    const nulled = await bakeCartridge(99, { setting: null });
+    assert.deepEqual(nulled.data.geo, plain.data.geo);
+    assert.deepEqual(nulled.data.slices, plain.data.slices);
+    assert.equal(catalogEntry(plain).setting, null);
+  });
+});

@@ -25,12 +25,18 @@ const CONTINENT_A = ['Vel', 'Kar', 'Oss', 'Thal', 'Mor', 'Ael', 'Dur', 'Ish', 'B
 const CONTINENT_B = ['drath', 'moor', 'heim', 'anta', 'ossa', 'gard', 'wyn', 'kara', 'dane', 'mir'];
 const PROVINCE_A  = ['Salt', 'Ash', 'Iron', 'Grey', 'Thorn', 'Ember', 'Mire', 'Bone', 'Storm', 'Elder', 'Fal', 'Hollow'];
 const PROVINCE_B  = ['march', 'fell', 'mark', 'reach', 'vale', 'wald', 'coast', 'gate', 'moor', 'rise', 'shore', 'deep'];
-const HOOKS = [
+// One line of rumour per unvisited layer, and the ONLY prose the skeleton
+// invents. It reaches a player twice — the rumoured section of the map screen,
+// and the fallback when a sea crossing sights a province with no outline yet —
+// so a host whose world has no sailors and no caravans needs to replace it.
+// (A host that renames the layers and leaves these behind gets an underground
+// shelter whose neighbouring level "sailors will not name after dark".)
+export const STUB_HOOKS = Object.freeze([
   'maps disagree about its borders', 'its rivers run the wrong way',
   'no two travellers describe it alike', 'the birds cross it without landing',
   'its roads are older than its towns', 'sailors will not name it after dark',
   'caravans pay double to go around it', 'the stars sit differently above it',
-];
+]);
 // Climate bands are OWNED by the province layer (doc 17's variation table):
 // regions inside a province inherit its band instead of rerolling at random.
 export const CLIMATE_BANDS = ['temperate', 'arid', 'frozen', 'tropical', 'volcanic', 'coastal', 'highland', 'mire'];
@@ -60,9 +66,11 @@ export const SYLLABLES = Object.freeze({
 // shapes the same world. Returns { geo, continents, provinces } where the
 // lists are ids in minting order (the first province of the first continent
 // is the conventional starting province).
-export function mintWorldSkeleton(seed, { continents = null, provincesPer = null, syllables = null } = {}) {
+export function mintWorldSkeleton(seed, { continents = null, provincesPer = null,
+                                          syllables = null, hooks = null } = {}) {
   const rng = mulberry32((seed ?? 1) >>> 0);
   const { cA, cB, pA, pB } = banks(syllables);
+  const hookPool = (Array.isArray(hooks) && hooks.length) ? hooks : STUB_HOOKS;
   let geo = emptyGeography();
   const continentIds = [];
   const provinceIds = [];
@@ -74,7 +82,7 @@ export function mintWorldSkeleton(seed, { continents = null, provincesPer = null
     const cId   = `continent-${c}`;
     geo = addNode(geo, {
       id: cId, name: `${pick(cA, cRng)}${pick(cB, cRng)}`, kind: 'continent',
-      seed: cSeed, hook: pick(HOOKS, cRng), stub: true, detail: 0, parent: null,
+      seed: cSeed, hook: pick(hookPool, cRng), stub: true, detail: 0, parent: null,
     });
     continentIds.push(cId);
 
@@ -95,7 +103,7 @@ export function mintWorldSkeleton(seed, { continents = null, provincesPer = null
       const pId   = `${cId}.province-${p}`;
       geo = addNode(geo, {
         id: pId, name: `${pick(prefixes, pRng)}${pick(suffixes, pRng)}`, kind: 'province',
-        seed: pSeed, hook: pick(HOOKS, pRng), stub: true, detail: 0, parent: cId,
+        seed: pSeed, hook: pick(hookPool, pRng), stub: true, detail: 0, parent: cId,
       });
       // The province owns its climate band — recorded on the node so regions
       // and dungeons inside it inherit instead of rerolling.
