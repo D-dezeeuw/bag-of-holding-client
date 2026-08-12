@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildBlueprint, deriveBlueprint, regionHints, settlementHints,
-  THEME_CLIMATES, BAND_SETTLEMENTS, DEFAULT_TABLES,
+  THEME_CLIMATES, BAND_SETTLEMENTS, DEFAULT_TABLES, mergeTables,
 } from '../src/worldgen/blueprint.js';
 import { mintWorldSkeleton, CLIMATE_BANDS } from '../src/worldgen/skeleton.js';
 
@@ -138,5 +138,109 @@ describe('scoped hint formatters', () => {
     const s = settlementHints(bp, reg);
     assert.match(s, new RegExp(`settlement is a: ${reg.settlementType}`));
     assert.match(s, /affiliated with one of these factions/); // factions still world-owned
+  });
+});
+
+// ─── Host-supplied palettes (doc 19: setting packs) ──────────────────────────
+//
+// A setting is largely its proper nouns and its furniture. A host re-skinning
+// the genre replaces the tables wholesale — every "theme" in a vertical city is
+// a floor, a sublevel or a shaft, and none of them appear in THEME_CLIMATES —
+// so the two module constants that used to be read directly had to become
+// defaults rather than laws. These pin that they still ARE the defaults.
+
+describe('host-supplied naming banks', () => {
+  const SYL = {
+    continentPrefixes: ['Kau', 'Sān', 'Wai', 'Tsim'],
+    continentSuffixes: ['lung', 'shui', 'wan', 'kok'],
+    provincePrefixes:  ['Low', 'Ash', 'Wire', 'Rain', 'Iron'],
+    provinceSuffixes:  ['stack', 'deck', 'shaft', 'tier', 'row'],
+  };
+
+  it('names every layer from the injected banks only', () => {
+    const { geo, continents, provinces } = mintWorldSkeleton(4242, { continents: 3, provincesPer: 3, syllables: SYL });
+    for (const cId of continents) {
+      const name = geo.nodes[cId].name;
+      assert.ok(SYL.continentPrefixes.some(a => name.startsWith(a)), `continent '${name}' is not from the bank`);
+      assert.ok(SYL.continentSuffixes.some(b => name.endsWith(b)),   `continent '${name}' is not from the bank`);
+    }
+    for (const pId of provinces) {
+      const name = geo.nodes[pId].name;
+      assert.ok(SYL.provincePrefixes.some(a => name.startsWith(a)), `province '${name}' is not from the bank`);
+      assert.ok(SYL.provinceSuffixes.some(b => name.endsWith(b)),   `province '${name}' is not from the bank`);
+    }
+  });
+
+  it('fills a partial set in from the defaults', () => {
+    const { geo, continents } = mintWorldSkeleton(7, { continents: 2, provincesPer: 2,
+      syllables: { continentPrefixes: SYL.continentPrefixes } });
+    for (const cId of continents) {
+      assert.ok(SYL.continentPrefixes.some(a => geo.nodes[cId].name.startsWith(a)));
+    }
+  });
+
+  it('leaves the default world byte-identical when no banks are passed', () => {
+    assert.deepEqual(mintWorldSkeleton(1234, { continents: 2, provincesPer: 3, syllables: null }),
+                     mintWorldSkeleton(1234, { continents: 2, provincesPer: 3 }));
+  });
+});
+
+describe('host-supplied climate palettes', () => {
+  const tables = {
+    dungeonThemes: ['server-crypt', 'flooded sublevel', 'tong den'],
+    themeClimates: { 'server-crypt': ['highland'], 'flooded sublevel': ['coastal', 'mire'], 'tong den': ['highland', 'coastal'] },
+    bandSettlements: { highland: ['antenna tier'], coastal: ['ferry gate'], mire: ['sump row'] },
+  };
+
+  it('honours the host map instead of the built-in one', () => {
+    const world = buildBlueprint(11, { tables });
+    const prov = deriveBlueprint(world, 22, 'province', { tables, climate: 'highland' });
+    assert.deepEqual(prov.settlementPalette, ['antenna tier']);
+    for (const theme of prov.dungeonThemePalette) {
+      assert.ok(tables.themeClimates[theme].includes('highland'), `${theme} does not belong in highland`);
+    }
+  });
+
+  it('never starves a band the host left uncovered', () => {
+    const sparse = { ...tables, themeClimates: { 'server-crypt': ['highland'] } };
+    const world = buildBlueprint(11, { tables: sparse });
+    const prov = deriveBlueprint(world, 22, 'province', { tables: sparse, climate: 'mire' });
+    assert.ok(prov.dungeonThemePalette.length >= 1, 'an empty palette makes pick() return undefined downstream');
+    const region = deriveBlueprint(prov, 33, 'region', { tables: sparse });
+    assert.ok(sparse.dungeonThemes.includes(region.dungeonTheme));
+  });
+
+  it('leaves the default derivation untouched', () => {
+    const world = buildBlueprint(4242);
+    for (const scope of ['continent', 'province', 'region']) {
+      assert.deepEqual(deriveBlueprint(world, 777, scope, { tables: DEFAULT_TABLES }),
+                       deriveBlueprint(world, 777, scope));
+    }
+  });
+});
+
+describe('partial table overrides', () => {
+  it('merge over the defaults instead of replacing them', () => {
+    // The all-or-nothing contract was a footgun: replacing only the themes —
+    // the normal shape of a genre re-skin — left `tones` undefined and the
+    // factory threw inside pick().
+    const bp = buildBlueprint(5, { tables: { dungeonThemes: ['server-crypt'] } });
+    assert.equal(bp.dungeonTheme, 'server-crypt');
+    assert.ok(DEFAULT_TABLES.tones.includes(bp.tone), 'untouched tables still come from the defaults');
+  });
+
+  it('mergeTables replaces arrays and merges objects, without mutating', () => {
+    const snapshot = JSON.stringify(DEFAULT_TABLES.settlementTypes);
+    const merged = mergeTables({ settlementTypes: { 'temperate forest': ['stack ward'] } });
+    assert.deepEqual(merged.settlementTypes['temperate forest'], ['stack ward']);
+    assert.ok(Object.keys(merged.settlementTypes).length > 1, 'other climates survive the merge');
+    assert.equal(JSON.stringify(DEFAULT_TABLES.settlementTypes), snapshot, 'defaults are not mutated');
+  });
+
+  it('is identity for no override, so every existing caller is untouched', () => {
+    assert.equal(mergeTables(null), DEFAULT_TABLES);
+    assert.equal(mergeTables({}), DEFAULT_TABLES);
+    assert.equal(mergeTables(DEFAULT_TABLES), DEFAULT_TABLES);
+    assert.deepEqual(buildBlueprint(999, { tables: {} }), buildBlueprint(999));
   });
 });
