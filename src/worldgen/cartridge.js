@@ -11,6 +11,14 @@
 // doc 18 unchanged. Mounting an old cartridge in a newer client runs the
 // envelope migration chain; the migrated shape lives in the session, the
 // artifact stays untouched.
+//
+// A cartridge also records its SETTING. A host that re-skins the genre passes
+// its archetype tables, naming banks and stub hooks here, and the bake honours
+// them everywhere the world's vocabulary is decided — otherwise every
+// pre-generated world is high fantasy no matter what the host is, and a
+// catalog cannot say which is which. Only the id is stored: the tables
+// themselves belong to the host that owns the setting, and a cartridge that
+// carried them would be claiming to be their source of truth.
 
 import { mintWorldSkeleton } from './skeleton.js';
 import { mintLore } from './lore.js';
@@ -31,18 +39,19 @@ export const CARTRIDGE_MIGRATIONS = Object.freeze({});
 // hydrate real prose into continent/province outlines — the "detail ≤ 1"
 // cartridge that makes cold landings instant — instead of each one staying
 // at its deterministic hook text.
-export async function bakeCartridge(seed, { complete = null, eraCount = null } = {}) {
-  const sk = mintWorldSkeleton(seed);
+export async function bakeCartridge(seed, { complete = null, eraCount = null, setting = null } = {}) {
+  const { id: settingId = null, tables = null, syllables = null, hooks = null } = setting ?? {};
+  const sk = mintWorldSkeleton(seed, { syllables, hooks });
   let geo = sk.geo;
   const lore = mintLore(sk, seed, { eraCount });
 
-  const world = deriveBlueprint(null, seed, 'world');
+  const world = deriveBlueprint(null, seed, 'world', { tables });
   const slices = { [`world`]: world };
   for (const cId of sk.continents) {
     const cNode = geo.nodes[cId];
-    slices[cId] = deriveBlueprint(world, cNode.seed, 'continent', { culture: cNode.nameParts ?? null });
+    slices[cId] = deriveBlueprint(world, cNode.seed, 'continent', { tables, culture: cNode.nameParts ?? null });
     for (const pId of sk.provinces.filter(p => geo.nodes[p].parent === cId)) {
-      slices[pId] = deriveBlueprint(slices[cId], geo.nodes[pId].seed, 'province', { climate: geo.nodes[pId].climate });
+      slices[pId] = deriveBlueprint(slices[cId], geo.nodes[pId].seed, 'province', { tables, climate: geo.nodes[pId].climate });
     }
   }
 
@@ -72,6 +81,7 @@ export async function bakeCartridge(seed, { complete = null, eraCount = null } =
 
   const data = {
     seed,
+    settingId,
     geo,
     continents: sk.continents,
     provinces: sk.provinces,
@@ -93,6 +103,11 @@ export function catalogEntry(cartridge, { id = null } = {}) {
     digest: cartridge.c,
     v: cartridge.v,
     name: startContinent?.name ?? `world-${d.seed}`,
+    // Which setting this world was baked under. A catalog of eight worlds is
+    // unreadable without it: 'Kau Lung, heroic, water riot' and 'Veldrath,
+    // heroic, undead plague' are the same row to a host that cannot tell they
+    // are different genres. null means the library's own default tables.
+    setting: d.settingId ?? null,
     tone: d.slices.world?.tone ?? null,
     threat: d.slices.world?.threatType ?? null,
     continents: d.continents.length,

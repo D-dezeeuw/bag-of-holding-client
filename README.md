@@ -115,7 +115,11 @@ const cyberpunk = buildBlueprint(1234, { tables: {
   themeClimates: { 'server-crypt': ['highland'], 'flooded sublevel': ['coastal', 'mire'], 'tong den': ['coastal'] },
 } });
 // ...and the layers above the region can carry their own naming culture:
-// mintWorldSkeleton(1234, { syllables: { continentPrefixes: [...], ... } })
+// mintWorldSkeleton(1234, { syllables: { continentPrefixes: [...], ... }, hooks: [...] })
+
+// A pre-generated world carries its setting the same way, and the catalog
+// says which is which:
+// bakeCartridge(1234, { setting: { id: 'neon-stacks', tables, syllables, hooks } })
 
 const world = await runPipeline([
   { name: 'world', critical: true, retries: 1,
