@@ -33,6 +33,15 @@ export { fetchModelIds } from './src/llm/catalog.js';
 export { JsonFieldStreamer } from './src/llm/stream.js';
 export { call, chatCompletion, chatStream, repairJson, checkKey } from './src/llm/client.js';
 export { generateImage, parseImageFromResponse } from './src/llm/image.js';
+// Whether an image may be made at all — pure, host-agnostic gate math, shared
+// with the MCP server so "the DM asked for a picture" and "the player clicked
+// render" answer to the same budget.
+export {
+  IMAGE_TIERS, DEFAULT_IMAGE_TIER, GRANT_TTL_MS, tierPolicy,
+  emptyImageGate, normalizeImageGate, rollImageWindow,
+  enableImages, disableImages, canRenderImage, imageGateStatus,
+  spendImageRender, refundImageRender, isGrantExpired, composeImagePrompt,
+} from './src/llm/imagegate.js';
 export { synthesizeSpeech, transcribeAudio, pcmToWav, bytesToBase64, TTS_FALLBACKS, PCM_MODELS } from './src/llm/audio.js';
 
 export { makeClock, isFull, advance, tickAll, clockMood, pressingClocks } from './src/narrative/clocks.js';
