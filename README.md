@@ -218,6 +218,7 @@ any genre.
 |---|---|
 | `llm/transport` `llm/tiers` `llm/client` `llm/stream` | the structured/streaming LLM client (deadlines + AbortSignal end to end) |
 | `llm/catalog` `llm/image` `llm/audio` | live model-catalog healing, scene-image generation, TTS/STT — all under the same deadlines and cost accounting |
+| `llm/imagegate` | whether a scene image may be made at all: off by default, tiered budget per rolling window, cooldown, one-shot render grants — pure, so the browser host and the MCP server share one answer |
 | `worldgen/rng` `worldgen/blueprint` `worldgen/pipeline` `worldgen/schemas` `worldgen/tones` `worldgen/geography` | seeded blueprint + resumable pipeline runner + layer schemas + the shared tone vocabulary + the region graph |
 | `dungeon/generate` | the dungeon-graph algorithm (injected stat blocks + content) |
 | `narrative/beats` `narrative/acts` `narrative/clocks` `narrative/factions` | beat evaluator, act arc, faction/threat clocks, reputation math |
