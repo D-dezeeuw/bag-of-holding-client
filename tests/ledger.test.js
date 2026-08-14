@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import {
   makePatch, appendPatch, fold, foldAll, getPath, historyOf,
   dirtyTargets, recentCauses, compact, SCOPES, KINDS,
+  digestScopeOf, causesFor,
 } from '../src/ledger/patch.js';
 import { makeId, slugSegment, isValidId, parentOf, kindOf, isUnder } from '../src/ledger/ids.js';
 
@@ -229,6 +230,72 @@ describe('the 80-hour property', () => {
     // …and still after compaction folds the noise away.
     const out = compact({}, ledger, { beforeTurn: 2900 });
     assert.equal(fold(out.bases[CURTAINS], out.ledger, CURTAINS).condition, 'moldy');
+  });
+});
+
+describe('digest re-rendering', () => {
+  // dirtyTargets said WHICH digests went stale and the host had nothing to do
+  // with the answer: the invalidation set was computed, exported, tested — and
+  // read by nobody, so an hour-30 region digest still described hour zero.
+  describe('digestScopeOf', () => {
+    it('resolves a region', () => {
+      assert.deepEqual(digestScopeOf('region.emberfen'),
+        { kind: 'region', collection: 'regions', key: 'emberfen' });
+    });
+
+    it('resolves settlements and dungeons', () => {
+      assert.deepEqual(digestScopeOf('region.emberfen.settlement.farstay'),
+        { kind: 'settlement', collection: 'settlements', key: 'farstay' });
+      assert.deepEqual(digestScopeOf('region.emberfen.dungeon.salt-mine'),
+        { kind: 'dungeon', collection: 'dungeons', key: 'salt-mine' });
+    });
+
+    it('stops at place granularity — a curtain has no digest', () => {
+      assert.equal(digestScopeOf(CURTAINS), null);
+      assert.equal(digestScopeOf('region.emberfen.settlement.farstay.npc.mara'), null);
+      assert.equal(digestScopeOf('region.emberfen.settlement.farstay.inn.privy'), null);
+    });
+
+    it('refuses what it cannot address', () => {
+      for (const bad of [null, undefined, '', 'emberfen', 'region', 'region.']) {
+        assert.equal(digestScopeOf(bad), null, `${JSON.stringify(bad)} must not resolve`);
+      }
+    });
+  });
+
+  describe('causesFor', () => {
+    const INN   = 'region.emberfen.settlement.farstay';
+    const GHOUL = `${INN}.creature.privy-ghoul`;
+    const led = [
+      p({ turn: 2,  target: INN,   path: 'mood',      to: 'uneasy',  because: 'a traveller went missing' }),
+      p({ turn: 5,  target: GHOUL, path: 'escalated', to: true,      because: 'the ghoul took the stablehand' }),
+      p({ turn: 9,  target: 'region.emberfen.settlement.other', path: 'x', to: 1, because: 'unrelated news' }),
+      p({ turn: 11, target: INN,   path: 'reputation', to: 'poor',   because: 'nobody will stay the night' }),
+    ];
+
+    it('includes what happened inside the place, not only to it', () => {
+      const causes = causesFor(led, INN);
+      assert.ok(causes.includes('the ghoul took the stablehand'),
+        'an event in the inn\'s privy is news about the settlement');
+      assert.equal(causes.length, 3);
+    });
+
+    it('excludes siblings', () => {
+      assert.ok(!causesFor(led, INN).includes('unrelated news'));
+    });
+
+    it('honours the watermark so a re-render only sees new news', () => {
+      assert.deepEqual(causesFor(led, INN, { sinceTurn: 10 }), ['nobody will stay the night']);
+    });
+
+    it('caps the batch, keeping the most recent', () => {
+      const causes = causesFor(led, INN, { limit: 1 });
+      assert.deepEqual(causes, ['nobody will stay the night']);
+    });
+
+    it('skips patches with nothing to say', () => {
+      assert.deepEqual(causesFor([p({ turn: 1, target: INN, path: 'x', to: 1, because: null })], INN), []);
+    });
   });
 });
 

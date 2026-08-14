@@ -52,6 +52,7 @@ export {
   makePatch, appendPatch, fold, foldAll, getPath, historyOf,
   dirtyTargets, recentCauses, compact, SCOPES, KINDS,
   pathsConflict, mechanicalPathsOf,
+  digestScopeOf, causesFor,
 } from './src/ledger/patch.js';
 
 // ── Worldgen ───────────────────────────────────────────────────────────────────
