@@ -94,11 +94,31 @@ describe('stalls', () => {
       'judge-only progression could freeze a campaign forever');
   });
 
-  it('any progress clears the stall', () => {
+  it('progress restarts the stall clock from NOW, not from turn 0', () => {
+    // The old behaviour set stallSince to null on any flag, and the detector
+    // read null as 0 — so raising a flag at turn 120 made the thread read as
+    // stalled at turn 121. The test used to assert that intermediate null;
+    // now it asserts the behaviour the mechanism exists for.
     let t = pushAct(emptyThread(), act1());
-    t = completeBeat(t, 'b1', { turn: 10 });
-    t = setFlag(t, 'something-happened');
-    assert.equal(t.stallSince, null);
+    t = completeBeat(t, 'b1', { turn: 100 });
+    assert.equal(isStalled(t, { turn: 120, patience: 60 }), false);
+    t = setFlag(t, 'something-happened', { turn: 120 });
+    assert.equal(isStalled(t, { turn: 121, patience: 60 }), false,
+      'fresh progress must not read as a stall');
+    assert.equal(isStalled(t, { turn: 180, patience: 60 }), true,
+      'sixty idle turns after the last progress is a stall');
+  });
+
+  it('a deadlocked act — no eligible beat, act incomplete — reads as stalled', () => {
+    // An act whose remaining beats are gated behind flags nothing raises used
+    // to be invisible to escalation forever: the hardest-stuck state was the
+    // one the mechanism could not see.
+    const gated = makeAct({ id: 'a2', title: 'x', premise: 'x', beats: [
+      { id: 'locked', title: 'never', dramaticPurpose: 'never', requires: ['flag-nothing-raises'] },
+    ] });
+    const t = pushAct(emptyThread(), gated);
+    assert.equal(activeBeat(t), null, 'precondition: no beat is eligible');
+    assert.equal(isStalled(t, { turn: 9999, patience: 60 }), true);
   });
 
   it('a finished thread is never stalled', () => {
@@ -149,5 +169,28 @@ describe('the GM directive', () => {
 
   it('is null when there is nothing to steer toward', () => {
     assert.equal(directive(emptyThread()), null);
+  });
+});
+
+describe('act transitions and the stall clock (2026-08-09 audit)', () => {
+  const oneBeatAct = (id, index = 0) => makeAct({ id, title: id, beats: [{ id: `${id}-b1` }], index });
+
+  it('an act adopted mid-campaign is not born stalled', () => {
+    let t = pushAct(emptyThread(), oneBeatAct('act-1'));
+    t = completeBeat(t, 'act-1-b1', { turn: 200 });
+    t = pushAct(t, oneBeatAct('act-2', 1));
+    // The close at turn 200 is story movement; act 2's patience runs from there.
+    assert.equal(isStalled(t, { turn: 201, patience: 60 }), false,
+      'the first turn of a freshly adopted act must not fire an escalation');
+    assert.equal(isStalled(t, { turn: 259, patience: 60 }), false);
+    assert.equal(isStalled(t, { turn: 260, patience: 60 }), true,
+      'a genuinely idle act 2 must still stall once patience runs out');
+  });
+
+  it('pushAct with a turn stamps the act and the clock', () => {
+    const t = pushAct(emptyThread(), oneBeatAct('act-1'), { turn: 42 });
+    assert.equal(t.acts[0].startedAtTurn, 42);
+    assert.equal(t.stallSince, 42);
+    assert.equal(isStalled(t, { turn: 43, patience: 60 }), false);
   });
 });

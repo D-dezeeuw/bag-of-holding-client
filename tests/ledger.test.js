@@ -298,3 +298,103 @@ describe('digest re-rendering', () => {
     });
   });
 });
+
+// ─── The holes a verification audit demonstrated, pinned shut ───────────────
+//
+// Each of these is a probe that USED to succeed: precedence compared exact
+// path strings only, and compaction reordered history and erased mechanical
+// ownership. If any of these tests fails, colour can overwrite truth again.
+
+describe('precedence is prefix-aware', () => {
+  const mech = makePatch({ turn: 1, target: 'npc.gob', kind: 'mechanical', path: 'stats.hp', to: 2 });
+
+  it('rejects a canon patch aimed one level UP (parent replaces the subtree)', () => {
+    const { ledger } = appendPatch([], mech);
+    const up = makePatch({ turn: 2, target: 'npc.gob', kind: 'canon', path: 'stats', to: { hp: 9 } });
+    const res = appendPatch(ledger, up);
+    assert.equal(res.ok, false);
+  });
+
+  it('rejects a canon patch aimed one level DOWN (child edits inside the fact)', () => {
+    const mechParent = makePatch({ turn: 1, target: 'npc.gob', kind: 'mechanical', path: 'stats', to: { hp: 2 } });
+    const { ledger } = appendPatch([], mechParent);
+    const down = makePatch({ turn: 2, target: 'npc.gob', kind: 'canon', path: 'stats.hp', to: 9 });
+    assert.equal(appendPatch(ledger, down).ok, false);
+  });
+
+  it('fold defends the same way against a hand-edited ledger', () => {
+    const up = makePatch({ turn: 2, target: 'npc.gob', kind: 'canon', path: 'stats', to: { hp: 9 } });
+    const view = fold({}, [mech, up], 'npc.gob');
+    assert.equal(getPath(view, 'stats.hp'), 2, 'the dice-set value must survive');
+  });
+
+  it('still accepts canon on genuinely disjoint fields', () => {
+    const { ledger } = appendPatch([], mech);
+    const colour = makePatch({ turn: 2, target: 'npc.gob', kind: 'canon', path: 'mood', to: 'wary' });
+    assert.equal(appendPatch(ledger, colour).ok, true);
+  });
+});
+
+describe('compaction preserves order, kind and history', () => {
+  it('a kept regional patch older than folded local ones does not re-apply on top', () => {
+    // regional says rumoured-dead at turn 1; mechanical local says alive at
+    // turn 5. Live fold: alive. The old compactor folded only the local patch
+    // into base and re-applied the kept regional one after — rumoured-dead.
+    const patches = [
+      makePatch({ turn: 1, target: 'npc.wight', kind: 'canon', scope: 'regional', path: 'status', to: 'rumoured-dead', because: 'tavern talk' }),
+      makePatch({ turn: 5, target: 'npc.wight', kind: 'mechanical', scope: 'local', path: 'status', to: 'alive' }),
+    ];
+    const before = fold({}, patches, 'npc.wight');
+    const { bases, ledger } = compact({}, patches, { beforeTurn: 10 });
+    const after = fold(bases['npc.wight'], ledger, 'npc.wight');
+    assert.deepEqual(after.status, before.status, 'compaction must not change what is true');
+  });
+
+  it('mechanical ownership survives compaction at the append gate and the fold', () => {
+    const patches = [
+      makePatch({ turn: 1, target: 'npc.gob', kind: 'mechanical', path: 'stats.hp', to: 2 }),
+    ];
+    const { bases, ledger } = compact({}, patches, { beforeTurn: 10 });
+    const lie = makePatch({ turn: 11, target: 'npc.gob', kind: 'canon', path: 'stats.hp', to: 99 });
+    assert.equal(appendPatch(ledger, lie, bases).ok, false, 'the gate must consult the base');
+    const lieUp = makePatch({ turn: 11, target: 'npc.gob', kind: 'canon', path: 'stats', to: { hp: 99 } });
+    assert.equal(appendPatch(ledger, lieUp, bases).ok, false, 'prefix-aware against the base too');
+    const view = fold(bases['npc.gob'], [...ledger, lie], 'npc.gob');
+    assert.equal(getPath(view, 'stats.hp'), 2, 'fold defends even if the lie got recorded');
+  });
+
+  it('kept patches stay citable as history but never apply twice', () => {
+    const patches = [
+      makePatch({ turn: 1, target: 'region.emberfen', kind: 'canon', scope: 'regional', path: 'threat', to: 'rising', because: 'the ghoul was ignored' }),
+      makePatch({ turn: 2, target: 'region.emberfen', kind: 'mechanical', scope: 'local', path: 'visited', to: true }),
+    ];
+    const { bases, ledger, foldedCount } = compact({}, patches, { beforeTurn: 10 });
+    assert.equal(foldedCount, 2);
+    assert.equal(ledger.length, 1, 'the regional patch survives as history');
+    assert.equal(ledger[0].folded, true);
+    assert.ok(recentCauses(ledger, { minScope: 'regional' }).some(c => /ghoul/.test(c.because)),
+      'history stays citable');
+    // Applying the survivor again must be a no-op: the base already has it.
+    const view = fold(bases['region.emberfen'], ledger, 'region.emberfen');
+    assert.equal(view.threat, 'rising');
+    // Re-compacting is idempotent — folded markers are not re-folded.
+    const again = compact(bases, ledger, { beforeTurn: 20 });
+    assert.equal(again.foldedCount, 0);
+  });
+});
+
+describe('setPath safety', () => {
+  it('preserves arrays instead of exploding them into keyed objects', () => {
+    const base = { inventory: ['sword', 'rope'] };
+    const p = makePatch({ turn: 1, target: 'pc', kind: 'mechanical', path: 'inventory.0', to: 'axe' });
+    const view = fold(base, [p], 'pc');
+    assert.ok(Array.isArray(view.inventory), 'the list must stay a list');
+    assert.deepEqual(view.inventory, ['axe', 'rope']);
+  });
+
+  it('refuses prototype-chain and malformed paths at makePatch', () => {
+    assert.throws(() => makePatch({ turn: 1, target: 'pc', path: '__proto__.polluted', to: 1 }), /forbidden/);
+    assert.throws(() => makePatch({ turn: 1, target: 'pc', path: 'a..b', to: 1 }), /empty segment/);
+    assert.throws(() => makePatch({ turn: 1, target: 'pc', path: 'a.constructor.b', to: 1 }), /forbidden/);
+  });
+});

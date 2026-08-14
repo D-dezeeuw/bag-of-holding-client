@@ -9,7 +9,7 @@ reusable.
 - **Zero runtime dependencies.** Single ESM surface, config-injected (no
   globals), `node --test`-friendly.
 - **Provider-agnostic LLM client** (OpenRouter default): tiered model routing,
-  JSON-schema-constrained completions, JSON-repair retry, 400/429 fallbacks,
+  JSON-schema-constrained completions, JSON-repair retry, model fallbacks on 400/404/429,
   streaming with a `JsonFieldStreamer`, and a typed `ApiError`.
 - **Layered worldgen** — a seeded blueprint factory + a `runPipeline` orchestrator
   that threads digests, fans out parallel layers, retries, and continues past
@@ -108,6 +108,19 @@ import { buildBlueprint, worldSeedConstraints, runPipeline,
 
 const blueprint = buildBlueprint(1234);     // deterministic archetype choices for this seed
 
+// Re-skinning the genre is a partial table override — everything you do not
+// name keeps coming from DEFAULT_TABLES:
+const cyberpunk = buildBlueprint(1234, { tables: {
+  dungeonThemes: ['server-crypt', 'flooded sublevel', 'tong den'],
+  themeClimates: { 'server-crypt': ['highland'], 'flooded sublevel': ['coastal', 'mire'], 'tong den': ['coastal'] },
+} });
+// ...and the layers above the region can carry their own naming culture:
+// mintWorldSkeleton(1234, { syllables: { continentPrefixes: [...], ... }, hooks: [...] })
+
+// A pre-generated world carries its setting the same way, and the catalog
+// says which is which:
+// bakeCartridge(1234, { setting: { id: 'neon-stacks', tables, syllables, hooks } })
+
 const world = await runPipeline([
   { name: 'world', critical: true, retries: 1,
     generate: (_digests, bp) => chatCompletion(config, {
@@ -203,7 +216,9 @@ any genre.
 
 | Module | Owns |
 |---|---|
-| `llm/transport` `llm/tiers` `llm/client` `llm/stream` | the structured/streaming LLM client |
+| `llm/transport` `llm/tiers` `llm/client` `llm/stream` | the structured/streaming LLM client (deadlines + AbortSignal end to end) |
+| `llm/catalog` `llm/image` `llm/audio` | live model-catalog healing, scene-image generation, TTS/STT — all under the same deadlines and cost accounting |
+| `llm/imagegate` | whether a scene image may be made at all: off by default, tiered budget per rolling window, cooldown, one-shot render grants — pure, so the browser host and the MCP server share one answer |
 | `worldgen/rng` `worldgen/blueprint` `worldgen/pipeline` `worldgen/schemas` `worldgen/tones` `worldgen/geography` | seeded blueprint + resumable pipeline runner + layer schemas + the shared tone vocabulary + the region graph |
 | `dungeon/generate` | the dungeon-graph algorithm (injected stat blocks + content) |
 | `narrative/beats` `narrative/acts` `narrative/clocks` `narrative/factions` | beat evaluator, act arc, faction/threat clocks, reputation math |
@@ -211,12 +226,30 @@ any genre.
 | `persistence/envelope` `persistence/idb` | versioned saves (strict migrations, backup rotation) + a hot/cold split |
 | `settlement/economy` | trade / quests / inventory / dialogue-memory helpers |
 | `travel/fsm` | the overworld travel state machine |
+| `output/zip` `output/epub` | store-only ZIP + EPUB builders (browser-only canvas cover) |
 
 ## Develop
 
 ```sh
 npm test     # node --test tests/*.test.js
 ```
+
+## Content hygiene
+
+`DEFAULT_TABLES` ships archetype names that end up inside prompts, so it
+follows the same rule as the rules kernel
+([docs/legal.md](https://github.com/D-dezeeuw/bag-of-holding/blob/main/docs/legal.md)):
+SRD 5.2 content by its real name, generic terms, or invented names — nothing
+that belongs to a published setting. Gods are described by **epithet** rather
+than named (`death — "the one who judges every life at its end"`), which keeps
+Product Identity out and steers better besides: an epithet gives the model a
+role to name, where a real deity invites it to reproduce that deity.
+`blueprintContext` also tells the model outright to invent original names,
+because a clean table alone does not stop it reaching for one it has read.
+
+`tests/legal.test.js` enforces this over the tables, the dungeon overlays, and
+every rendered prompt constraint across 250 seeds. If you swap in your own
+`tables`, that guard covers the defaults only — yours are your own to check.
 
 ## License
 

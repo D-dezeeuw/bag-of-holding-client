@@ -44,48 +44,81 @@ export function openCold(factory = globalThis.indexedDB, { name = DB_NAME } = {}
 }
 
 function tx(db, store, mode) {
-  return db.transaction(store, mode).objectStore(store);
+  return db.transaction(store, mode);
 }
 
+// Resolve with the request's result AND whether it actually succeeded. The
+// previous wrapper resolved `null` for both "no result" and "the request
+// errored", so a failed write reported `true` to its caller — the silent
+// quota failure this module exists to eliminate came straight back.
 function wrap(request) {
   return new Promise((resolve) => {
-    request.onsuccess = () => resolve(request.result ?? null);
-    request.onerror   = () => resolve(null);
+    request.onsuccess = () => resolve({ ok: true, result: request.result ?? null });
+    request.onerror   = () => resolve({ ok: false, result: null });
+  });
+}
+
+// A write is durable when its TRANSACTION completes, not when the request
+// fires onsuccess — a quota abort can still arrive between the two. Waits on
+// oncomplete/onabort when the transaction object supports them (real
+// IndexedDB); resolves optimistically for minimal fakes that don't.
+function settled(transaction, requestOk) {
+  if (!requestOk) return Promise.resolve(false);
+  if (!transaction || typeof transaction !== 'object') return Promise.resolve(true);
+  if (!('oncomplete' in transaction) && !('addEventListener' in transaction)) {
+    return Promise.resolve(true);
+  }
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (ok) => { if (!done) { done = true; resolve(ok); } };
+    try {
+      transaction.oncomplete = () => finish(true);
+      transaction.onabort    = () => finish(false);
+      transaction.onerror    = () => finish(false);
+    } catch { finish(true); }
   });
 }
 
 export async function coldPut(db, store, key, value) {
   if (!db) return false;
   try {
-    await wrap(tx(db, store, 'readwrite').put({ key, value }));
-    return true;
+    const t = tx(db, store, 'readwrite');
+    const { ok } = await wrap(t.objectStore(store).put({ key, value }));
+    return await settled(t, ok);
   } catch { return false; }
 }
 
 export async function coldGet(db, store, key) {
   if (!db) return null;
   try {
-    const row = await wrap(tx(db, store, 'readonly').get(key));
-    return row?.value ?? null;
+    const { result } = await wrap(tx(db, store, 'readonly').objectStore(store).get(key));
+    return result?.value ?? null;
   } catch { return null; }
 }
 
 export async function coldKeys(db, store) {
   if (!db) return [];
-  try { return (await wrap(tx(db, store, 'readonly').getAllKeys())) ?? []; } catch { return []; }
+  try {
+    const { result } = await wrap(tx(db, store, 'readonly').objectStore(store).getAllKeys());
+    return result ?? [];
+  } catch { return []; }
 }
 
 export async function coldAll(db, store) {
   if (!db) return [];
   try {
-    const rows = await wrap(tx(db, store, 'readonly').getAll());
-    return (rows ?? []).map(r => r.value);
+    const { result } = await wrap(tx(db, store, 'readonly').objectStore(store).getAll());
+    return (result ?? []).map(r => r.value);
   } catch { return []; }
 }
 
 export async function coldDelete(db, store, key) {
   if (!db) return false;
-  try { await wrap(tx(db, store, 'readwrite').delete(key)); return true; } catch { return false; }
+  try {
+    const t = tx(db, store, 'readwrite');
+    const { ok } = await wrap(t.objectStore(store).delete(key));
+    return await settled(t, ok);
+  } catch { return false; }
 }
 
 // ─── Segmented archives ──────────────────────────────────────────────────────
@@ -97,11 +130,26 @@ export async function coldDelete(db, store, key) {
 
 export const segmentKey = (prefix, index) => `${prefix}:${String(index).padStart(6, '0')}`;
 
-export async function appendSegment(db, store, prefix, items) {
+// Append a batch as a new segment.
+//
+// `startIndex` (when the caller tracks one — the archive watermark does) keys
+// the segment by the batch's position in the source array, which makes an
+// accidental re-archive of the same range an idempotent overwrite instead of
+// a duplicate. Without it, the next key is max(existing)+1 — the previous
+// count-based scheme reused a key after any deletion and silently destroyed
+// the newest segment.
+export async function appendSegment(db, store, prefix, items, { startIndex = null } = {}) {
   if (!db || !items?.length) return null;
-  const existing = await coldKeys(db, store);
-  const mine = existing.filter(k => typeof k === 'string' && k.startsWith(`${prefix}:`));
-  const key = segmentKey(prefix, mine.length);
+  let index = startIndex;
+  if (index === null) {
+    const existing = await coldKeys(db, store);
+    const mine = existing
+      .filter(k => typeof k === 'string' && k.startsWith(`${prefix}:`))
+      .map(k => Number(k.slice(prefix.length + 1)))
+      .filter(Number.isFinite);
+    index = mine.length ? Math.max(...mine) + 1 : 0;
+  }
+  const key = segmentKey(prefix, index);
   return (await coldPut(db, store, key, items)) ? key : null;
 }
 
@@ -124,23 +172,62 @@ export async function readSegments(db, store, prefix) {
 // Split a save snapshot into what must stay resident and what can be archived.
 // Pure, so the policy is testable without a browser: the hot slice keeps the
 // last `keepTranscript` entries and the ledger tail; the rest goes cold.
-export function splitSave(snapshot, { keepTranscript = 50, keepLedger = 200 } = {}) {
+//
+// `archivedTranscript` / `archivedLedger` are the caller's WATERMARKS — how
+// many leading entries are already durably archived. The cold slice starts at
+// the watermark, so calling this every turn archives only what is NEW since
+// the last successful archive. Without watermarks (the pre-0.2.0 behaviour),
+// every save re-archived the entire overflow: measured 88x duplication at 200
+// turns, quadratic beyond. Callers advance the watermark only after the
+// archive write reports success, and `cold.*Start` says where each batch
+// begins so it can key the segment idempotently.
+// Two calling modes, distinguished by whether a watermark is passed:
+//
+//   TRIM MODE (no watermark — the original contract): the caller feeds the
+//   previous HOT slice back in each cycle, so the array only ever contains
+//   un-archived material. Cold = everything that leaves the keep-window;
+//   `hot.archived` accumulates the running total for display.
+//
+//   WATERMARK MODE (`archivedTranscript`/`archivedLedger` passed): the caller
+//   keeps the FULL live array (a reactive app state it must not trim) and
+//   tracks how many leading entries are already durably archived. Cold starts
+//   at the watermark, so calling this every turn archives only what is new —
+//   without it, every save re-archived the entire overflow (measured 88x
+//   duplication at 200 turns, quadratic beyond). Advance the watermark to
+//   `hot.archived.*` only after the archive write reports success;
+//   `cold.*Start` keys the segment idempotently.
+export function splitSave(snapshot, opts = {}) {
+  const { keepTranscript = 50, keepLedger = 200 } = opts;
+  const watermarked = opts.archivedTranscript !== undefined || opts.archivedLedger !== undefined;
   const transcript = snapshot?.transcript ?? [];
   const ledger     = snapshot?.world?.ledger ?? [];
 
-  const coldTranscript = transcript.slice(0, Math.max(0, transcript.length - keepTranscript));
-  const coldLedger     = ledger.slice(0, Math.max(0, ledger.length - keepLedger));
+  // slice(-0) is slice(0) — the whole array — so keep = 0 must short-circuit
+  // or "keep nothing hot" duplicates the full history into both tiers.
+  const tail = (arr, keep) => (keep > 0 ? arr.slice(-keep) : []);
+  const coldEnd = (arr, keep) => Math.max(0, arr.length - keep);
+
+  const tStart = watermarked ? Math.max(0, Math.min(opts.archivedTranscript ?? 0, transcript.length)) : 0;
+  const lStart = watermarked ? Math.max(0, Math.min(opts.archivedLedger ?? 0, ledger.length)) : 0;
+  const coldTranscript = transcript.slice(tStart, Math.max(tStart, coldEnd(transcript, keepTranscript)));
+  const coldLedger     = ledger.slice(lStart, Math.max(lStart, coldEnd(ledger, keepLedger)));
 
   const hot = {
     ...snapshot,
-    transcript: transcript.slice(-keepTranscript),
-    world: { ...snapshot?.world, ledger: ledger.slice(-keepLedger) },
+    transcript: tail(transcript, keepTranscript),
+    world: { ...snapshot?.world, ledger: tail(ledger, keepLedger) },
   };
-  // Where the archived material starts, so a reader knows the hot slice is a
-  // tail and not the whole history.
-  hot.archived = {
-    transcript: (snapshot?.archived?.transcript ?? 0) + coldTranscript.length,
-    ledger:     (snapshot?.archived?.ledger ?? 0) + coldLedger.length,
+  hot.archived = watermarked
+    ? { transcript: tStart + coldTranscript.length, ledger: lStart + coldLedger.length }
+    : {
+        transcript: (snapshot?.archived?.transcript ?? 0) + coldTranscript.length,
+        ledger:     (snapshot?.archived?.ledger ?? 0) + coldLedger.length,
+      };
+  return {
+    hot,
+    cold: {
+      transcript: coldTranscript, transcriptStart: tStart,
+      ledger: coldLedger, ledgerStart: lStart,
+    },
   };
-  return { hot, cold: { transcript: coldTranscript, ledger: coldLedger } };
 }

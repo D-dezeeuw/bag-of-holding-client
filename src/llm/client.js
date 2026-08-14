@@ -2,9 +2,10 @@
 //
 // Functional + config-injected: every call takes an LlmConfig. The config carries
 // `onTokens(n)` so the HOST does usage accounting (the library never touches
-// global state). Fallback policy branches on ApiError.status:
-//   400 (content filter / unsupported feature) → retry once at the medium tier
-//   429 (rate limited)                          → walk the tier's fallback model chain
+// global state). Fallback policy: on any model-swappable error (429 rate limit,
+// or the 400/404 a provider returns for a delisted model id) both chatCompletion
+// and chatStream walk the tier's whole fallback chain before rethrowing the
+// original error. Auth (401/403) and server faults (5xx) never walk the chain.
 
 import { apiBase, authHeaders, ApiError, withDeadline, asTransportError, DEFAULT_TIMEOUT_MS } from './transport.js';
 import { resolveModel, sampling, FREE_MODELS, FREE_FALLBACKS } from './tiers.js';
@@ -145,55 +146,67 @@ export async function chatStream(config, { tier = 'medium', messages, maxTokens,
     return res;
   };
 
-  // Same model-swap policy as call(): the narrator is the one call a player
-  // cannot play without, so a rate-limited or delisted primary walks the chain
-  // rather than ending the turn.
-  let res;
+  // Everything from the first open() to the last read runs under ONE
+  // try/finally: the previous shape leaked the armed deadline timer both when
+  // every open failed AND when the stream died mid-read — and a mid-stream
+  // cancel escaped as a raw DOMException, breaking transport.js's promise
+  // that cancellations are distinguishable from provider faults.
   try {
-    res = await open(resolveModel(tier, config, config.defaultModels));
-  } catch (err) {
-    if (!isModelSwappableError(err)) throw err;
-    for (const model of fallbackChain(config, tier)) {
-      try { res = await open(model); break; } catch (fbErr) {
-        if (!isModelSwappableError(fbErr)) throw fbErr;
-      }
-    }
-    if (!res) throw err;
-  }
-
-  const reader    = res.body.getReader();
-  const decoder   = new TextDecoder();
-  const extractor = field ? new JsonFieldStreamer(field) : null;
-  let full    = '';
-  let partial = '';
-
-  outer: while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = partial + decoder.decode(value, { stream: true });
-    const lines = chunk.split('\n');
-    partial = lines.pop();
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith('data: ')) continue;
-      const data = trimmed.slice(6);
-      if (data === '[DONE]') break outer;
-      try {
-        const evt   = JSON.parse(data);
-        const delta = evt.choices?.[0]?.delta?.content;
-        if (delta) {
-          full += delta;
-          if (onChunk) {
-            const out = extractor ? extractor.feed(delta) : delta;
-            if (out) onChunk(out);
-          }
+    // Same model-swap policy as call(): the narrator is the one call a player
+    // cannot play without, so a rate-limited or delisted primary walks the
+    // chain rather than ending the turn.
+    let res;
+    try {
+      res = await open(resolveModel(tier, config, config.defaultModels));
+    } catch (err) {
+      if (!isModelSwappableError(err)) throw err;
+      for (const model of fallbackChain(config, tier)) {
+        try { res = await open(model); break; } catch (fbErr) {
+          if (!isModelSwappableError(fbErr)) throw fbErr;
         }
-        accountTokens(config, evt);
-      } catch { /* malformed SSE line — skip */ }
+      }
+      if (!res) throw err;
     }
+
+    const reader    = res.body.getReader();
+    const decoder   = new TextDecoder();
+    const extractor = field ? new JsonFieldStreamer(field) : null;
+    let full    = '';
+    let partial = '';
+
+    try {
+      outer: while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = partial + decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        partial = lines.pop();
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data: ')) continue;
+          const data = trimmed.slice(6);
+          if (data === '[DONE]') break outer;
+          try {
+            const evt   = JSON.parse(data);
+            const delta = evt.choices?.[0]?.delta?.content;
+            if (delta) {
+              full += delta;
+              if (onChunk) {
+                const out = extractor ? extractor.feed(delta) : delta;
+                if (out) onChunk(out);
+              }
+            }
+            accountTokens(config, evt);
+          } catch { /* malformed SSE line — skip */ }
+        }
+      }
+    } catch (err) {
+      throw asTransportError(err, deadline.signal);
+    }
+    return full;
+  } finally {
+    deadline.done();
   }
-  deadline.done();
-  return full;
 }
 
 // Validate a key against the provider's key endpoint. False ONLY on 401; any

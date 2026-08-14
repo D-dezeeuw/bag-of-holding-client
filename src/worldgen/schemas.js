@@ -191,3 +191,103 @@ export const SETTLEMENT_SCHEMA = {
   required: ['id', 'name', 'description', 'npcs', 'exits'],
   additionalProperties: false,
 };
+
+// ─── Layered-world outlines (doc 17, textual LOD) ────────────────────────────
+//
+// An outline is detail level 1: ~40–60 words of what a place is ABOUT, plus
+// the facts lower layers inherit (faction presence, conflicts). One call
+// outlines all continents at genesis; a province outlines on first approach.
+
+export const CONTINENT_OUTLINE_SCHEMA = {
+  type: 'object',
+  properties: {
+    id:     { type: 'string' },
+    name:   { type: 'string' },
+    digest: { type: 'string' },
+    factionHomelands: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          factionId: { type: 'string' },
+          presence:  { type: 'string', enum: ['homeland', 'strong', 'contested', 'absent'] },
+        },
+        required: ['factionId', 'presence'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['id', 'name', 'digest', 'factionHomelands'],
+  additionalProperties: false,
+};
+
+export const CONTINENTS_OUTLINE_SCHEMA = {
+  type: 'object',
+  properties: {
+    continents: { type: 'array', items: CONTINENT_OUTLINE_SCHEMA },
+  },
+  required: ['continents'],
+  additionalProperties: false,
+};
+
+// ─── Lore entities (doc 18 §4) ───────────────────────────────────────────────
+//
+// Hydration contracts for the stubs src/worldgen/lore.js mints at genesis.
+
+export const CROWN_SCHEMA = {
+  type: 'object',
+  properties: {
+    id:            { type: 'string' },
+    name:          { type: 'string' },
+    title:         { type: 'string' },
+    seat:          { type: ['string', 'null'] },
+    legitimacy:    { type: 'string', enum: ['settled', 'contested', 'usurped', 'failing', 'newly crowned'] },
+    stanceOnThreat: { type: 'string' },
+    factionRelations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          factionId: { type: 'string' },
+          stance:    { type: 'string', enum: ['ally', 'rival', 'puppet', 'defiant'] },
+        },
+        required: ['factionId', 'stance'],
+        additionalProperties: false,
+      },
+    },
+    digest: { type: 'string' },
+  },
+  required: ['id', 'name', 'title', 'seat', 'legitimacy', 'stanceOnThreat', 'factionRelations', 'digest'],
+  additionalProperties: false,
+};
+
+export const LEGEND_SCHEMA = {
+  type: 'object',
+  properties: {
+    id:            { type: 'string' },
+    title:         { type: 'string' },
+    era:           { type: ['string', 'null'] },
+    kernelOfTruth: { type: 'string' },
+    sites:         { type: 'array', items: { type: 'string' } },
+    hooks:         { type: 'array', items: { type: 'string' } },
+    payoff:        { type: 'string' },
+    digest:        { type: 'string' },
+  },
+  required: ['id', 'title', 'era', 'kernelOfTruth', 'sites', 'hooks', 'payoff', 'digest'],
+  additionalProperties: false,
+};
+
+export const PROVINCE_OUTLINE_SCHEMA = {
+  type: 'object',
+  properties: {
+    id:       { type: 'string' },
+    name:     { type: 'string' },
+    digest:   { type: 'string' },
+    conflicts:  { type: 'array', items: { type: 'string' } },
+    landmarks:  { type: 'array', items: { type: 'string' } },
+    dominantFactionId: { type: ['string', 'null'] },
+    factionStance:     { type: 'string', enum: ['dominant', 'contested', 'absent'] },
+  },
+  required: ['id', 'name', 'digest', 'conflicts', 'landmarks', 'dominantFactionId', 'factionStance'],
+  additionalProperties: false,
+};

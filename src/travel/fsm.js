@@ -12,10 +12,15 @@ export const DISCOVERY_CHANCE     = 0.35;
 
 export const DISCOVERY_TYPES = ['loot', 'wanderer', 'shrine', 'clue'];
 
-export function beginTravel(destination, rng = Math.random) {
+// The options bag is doc 18 §9's shim: `segments` (from a planJourney leg)
+// and `mode` override the legacy defaults; the no-opts call is byte-identical
+// to before — the adoptFlatWorld precedent, never strand an in-flight host.
+export function beginTravel(destination, rng = Math.random, { segments = null, mode = null } = {}) {
   const span     = TRAVEL_SEGMENTS_MAX - TRAVEL_SEGMENTS_MIN + 1;
-  const segments = TRAVEL_SEGMENTS_MIN + Math.floor(rng() * span);
-  return { phase: 'departing', destination, segment: 0, segments, log: [], done: false };
+  const n        = segments ?? (TRAVEL_SEGMENTS_MIN + Math.floor(rng() * span));
+  const t = { phase: 'departing', destination, segment: 0, segments: n, log: [], done: false };
+  if (mode) t.mode = mode;
+  return t;
 }
 
 export function isTravelDone(travel) {
@@ -33,14 +38,19 @@ export function stepTravel(travel, rng = Math.random, opts = {}) {
   if (t.phase === 'traveling') {
     t.segment += 1;
     let event;
+    // Per-mode tuning arrives via opts (see travel/modes.js) — an ocean
+    // crossing rolls storms at sea rates, not road rates. Defaults unchanged.
+    const encounterChance = opts.encounterChance ?? ENCOUNTER_CHANCE;
+    const discoveryChance = opts.discoveryChance ?? DISCOVERY_CHANCE;
+    const discoveryTypes  = opts.discoveryTypes ?? DISCOVERY_TYPES;
     if (opts.safe) {
       event = { type: 'uneventful' };
     } else {
       const roll = rng();
-      if (roll < ENCOUNTER_CHANCE) {
+      if (roll < encounterChance) {
         event = { type: 'encounter' };
-      } else if (roll < ENCOUNTER_CHANCE + DISCOVERY_CHANCE) {
-        const d = DISCOVERY_TYPES[Math.floor(rng() * DISCOVERY_TYPES.length)];
+      } else if (roll < encounterChance + discoveryChance) {
+        const d = discoveryTypes[Math.floor(rng() * discoveryTypes.length)];
         event = { type: 'discovery', discovery: d };
       } else {
         event = { type: 'uneventful' };
@@ -54,10 +64,10 @@ export function stepTravel(travel, rng = Math.random, opts = {}) {
   if (t.phase === 'arriving') {
     t.phase = 'arrived';
     t.done = true;
-    return { travel: t, event: { type: 'arrive', destination: t.destination } };
+    return { travel: t, event: { type: 'arrive', destination: t.destination, ...(t.mode ? { mode: t.mode } : {}) } };
   }
 
-  return { travel: { ...t, done: true }, event: { type: 'arrive', destination: t.destination } };
+  return { travel: { ...t, done: true }, event: { type: 'arrive', destination: t.destination, ...(t.mode ? { mode: t.mode } : {}) } };
 }
 
 export function pickEncounter(pool, rng = Math.random) {
@@ -66,7 +76,7 @@ export function pickEncounter(pool, rng = Math.random) {
 }
 
 export function runTravel(destination, rng = Math.random, opts = {}) {
-  let travel = beginTravel(destination, rng);
+  let travel = beginTravel(destination, rng, opts);
   const events = [];
   for (let i = 0; i < 64 && !isTravelDone(travel); i++) {
     const res = stepTravel(travel, rng, opts);

@@ -433,3 +433,64 @@ describe('per-room dressing', () => {
     for (const room of Object.values(d.rooms)) assert.ok(room.description.trim().length > 0);
   });
 });
+
+// ─── 0.2.0 — verification-audit fixes ────────────────────────────────────────
+
+describe('0.2.0 verification-audit fixes', () => {
+
+
+it('a critical failure in a parallel group keeps the paid siblings', async () => {
+  const { runPipeline, PipelineError } = await import('../src/worldgen/pipeline.js');
+  const seen = [];
+  try {
+    await runPipeline([
+      { name: 'world', critical: true, generate: async () => ({ ok: 1 }) },
+      { name: 'a', group: 1, critical: true, dependsOn: ['world'], generate: async () => { throw new Error('boom'); } },
+      { name: 'b', group: 1, dependsOn: ['world'], generate: async () => ({ paid: true }) },
+    ], { blueprint: {}, onCheckpoint: (r) => seen.push({ ...r }) });
+    assert.fail('must throw');
+  } catch (err) {
+    assert.ok(err instanceof PipelineError);
+    assert.deepEqual(err.results.b, { paid: true },
+      'the completed sibling must ride the error, not be re-paid on resume');
+    assert.ok(seen.some(cp => cp.b?.paid === true),
+      'the failing group must still checkpoint what it produced');
+  }
+});
+
+it('a clock created already-full fires on its first tick instead of never', async () => {
+  const { makeClock, tickAll } = await import('../src/narrative/clocks.js');
+  const clock = makeClock({ id: 'ghoul', label: 'the privy worsens', segments: 4, filled: 9 });
+  const { fired } = tickAll([clock]);
+  assert.equal(fired.length, 1, 'full-but-unfired must fire exactly once');
+  const again = tickAll(fired);
+  assert.equal(again.fired.length, 0, 'and only once');
+});
+
+it('generated loot carries its mechanical fields into the room', async () => {
+  const { generateDungeon } = await import('../src/dungeon/generate.js');
+  // A seed whose layout scatters at least one branch-room item; if the shape
+  // ever changes, widen the seed loop below rather than weakening the assert.
+  let scattered = [];
+  for (let seed = 0; seed < 20 && scattered.length === 0; seed++) {
+    const world = generateDungeon(seed, {
+      statBlockFor: () => ({ hp: 5, ac: 10, attacks: [] }),
+      defaultEnemyIds: ['skeleton'],
+      blueprint: { dungeonTheme: 'crypt', godDomains: [] },
+      content: {
+        loot: [{ name: 'Healing Draught', desc: 'Red glass.', heals: '2d4+2', consumable: true, value: 25 }],
+        treasures: [{ name: 'Idol', desc: 'Gold.' }],
+        keys: [{ name: 'Iron Key', desc: 'Cold.' }],
+      },
+    });
+    scattered = Object.values(world.rooms).flatMap(r => r.loot).filter(i => i.id.startsWith('loot-'));
+  }
+  assert.ok(scattered.length > 0, 'fixture must scatter at least one item');
+  for (const item of scattered) {
+    assert.equal(item.heals, '2d4+2', 'the healing spec must survive the scatter');
+    assert.equal(item.consumable, true);
+    assert.equal(item.value, 25);
+    assert.equal(item.description, 'Red glass.');
+  }
+});
+});

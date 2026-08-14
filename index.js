@@ -33,6 +33,15 @@ export { fetchModelIds } from './src/llm/catalog.js';
 export { JsonFieldStreamer } from './src/llm/stream.js';
 export { call, chatCompletion, chatStream, repairJson, checkKey } from './src/llm/client.js';
 export { generateImage, parseImageFromResponse } from './src/llm/image.js';
+// Whether an image may be made at all — pure, host-agnostic gate math, shared
+// with the MCP server so "the DM asked for a picture" and "the player clicked
+// render" answer to the same budget.
+export {
+  IMAGE_TIERS, DEFAULT_IMAGE_TIER, GRANT_TTL_MS, tierPolicy,
+  emptyImageGate, normalizeImageGate, rollImageWindow,
+  enableImages, disableImages, canRenderImage, imageGateStatus,
+  spendImageRender, refundImageRender, isGrantExpired, composeImagePrompt,
+} from './src/llm/imagegate.js';
 export { synthesizeSpeech, transcribeAudio, pcmToWav, bytesToBase64, TTS_FALLBACKS, PCM_MODELS } from './src/llm/audio.js';
 
 export { makeClock, isFull, advance, tickAll, clockMood, pressingClocks } from './src/narrative/clocks.js';
@@ -42,25 +51,53 @@ export { makeId, slugSegment, isValidId, parentOf, kindOf, isUnder } from './src
 export {
   makePatch, appendPatch, fold, foldAll, getPath, historyOf,
   dirtyTargets, recentCauses, compact, SCOPES, KINDS,
+  pathsConflict, mechanicalPathsOf,
   digestScopeOf, causesFor,
 } from './src/ledger/patch.js';
 
 // ── Worldgen ───────────────────────────────────────────────────────────────────
 export { pick, pickN, shuffle, randInt, mintSeed, mulberry32 } from './src/worldgen/rng.js';
 export { TONES, isTone } from './src/worldgen/tones.js';
-export { buildBlueprint, blueprintContext, worldSeedConstraints, beatsHints, factionsHints, regionHints, settlementHints } from './src/worldgen/blueprint.js';
+export {
+  buildBlueprint, deriveBlueprint, blueprintContext, worldSeedConstraints,
+  beatsHints, factionsHints, regionHints, settlementHints, menaceHints,
+  DEFAULT_TABLES, mergeTables,
+  THEME_CLIMATES, BAND_SETTLEMENTS, THREAT_EXPRESSIONS, MENACE_TIERS, MENACE_SIGNPOSTS,
+} from './src/worldgen/blueprint.js';
 export { runPipeline, ensureDigest, withRetry, PipelineError } from './src/worldgen/pipeline.js';
 export {
   emptyGeography, addNode, connect, neighbours, expandFrom, markVisited,
   knownMap, routeBetween, DIRECTIONS,
+  childrenOf, ancestorsOf, promoteNode, discoverAncestors,
 } from './src/worldgen/geography.js';
+export {
+  HYDRATION_TEMPLATES, hydrateNode, ensureLineage, lineageContext,
+  gazetteerOf, coerceBeatLocation, runPostConditions,
+  mintProvinceRegions, mintRegionSites, promoteObserved,
+  portAnchorOf, mintLandfall, whileYouWereGone,
+} from './src/worldgen/hydrate.js';
+export {
+  bakeCartridge, mountCartridge, catalogEntry,
+  CARTRIDGE_VERSION, CARTRIDGE_MIGRATIONS,
+} from './src/worldgen/cartridge.js';
+export { mintWorldSkeleton, adoptFlatWorld, CLIMATE_BANDS, SYLLABLES, STUB_HOOKS } from './src/worldgen/skeleton.js';
 export {
   WORLD_SEED_SCHEMA, REGION_SCHEMA, NPC_SCHEMA, FACTION_SCHEMA,
   BEAT_SCHEMA, RED_THREAD_SCHEMA, FACTIONS_SCHEMA, SETTLEMENT_SCHEMA,
+  CONTINENT_OUTLINE_SCHEMA, CONTINENTS_OUTLINE_SCHEMA, PROVINCE_OUTLINE_SCHEMA,
+  CROWN_SCHEMA, LEGEND_SCHEMA,
 } from './src/worldgen/schemas.js';
+export {
+  mintEras, mintLegendStubs, mintCrownStub, mintLore,
+  ERA_NAMES, LEGEND_TITLE_A, LEGEND_TITLE_B, CROWN_TITLES, LEGITIMACIES,
+} from './src/worldgen/lore.js';
 
 // ── Dungeon ────────────────────────────────────────────────────────────────────
 export { generateDungeon, DUNGEON_OVERLAYS, DEFAULT_SIZE as DEFAULT_DUNGEON_SIZE } from './src/dungeon/generate.js';
+
+// ── Layout (shared spatial core + settlement space) ───────────────────────────
+export { generateLayout, placeOnGrid, attachBranch, dirBetween, deriveAdjacency } from './src/layout/engine.js';
+export { settlementLayout, cityLayout, bindSettlement, SETTLEMENT_SIZES, ROLE_BUILDINGS } from './src/layout/settlement.js';
 
 // ── Narrative (story beats + faction reputation) ─────────────────────────────────
 export {
@@ -92,6 +129,8 @@ export {
   beginTravel, stepTravel, isTravelDone, pickEncounter, runTravel,
   TRAVEL_SEGMENTS_MIN, TRAVEL_SEGMENTS_MAX, ENCOUNTER_CHANCE, DISCOVERY_CHANCE, DISCOVERY_TYPES,
 } from './src/travel/fsm.js';
+export { TRAVEL_MODES, LANDFALL_HOOKS } from './src/travel/modes.js';
+export { planJourney, legTravelOptions, applyTravelClocks } from './src/travel/planner.js';
 
 // ── Output (browser-only: ZIP byte-core is node-testable, EPUB needs a canvas) ───
 export { crc32, zipBytes, buildZip } from './src/output/zip.js';

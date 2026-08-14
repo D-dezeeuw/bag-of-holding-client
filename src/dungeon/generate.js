@@ -22,8 +22,11 @@
 //   }) -> { currentRoom, exitRoomId, rooms, npcs }
 
 import { mulberry32, pick as rpick, shuffle as rshuffle, randInt as rrandInt } from '../worldgen/rng.js';
+// The spatial core lives in layout/engine.js now (doc 18 §10) — settlements
+// wear the same skeleton. Extraction is verbatim; the dungeon tests pin the
+// output.
+import { placeOnGrid, attachBranch, dirBetween, OPPOSITE } from '../layout/engine.js';
 
-const OPPOSITE = { north: 'south', south: 'north', east: 'west', west: 'east' };
 const MID_TYPES = ['hall', 'corridor', 'chamber', 'storage', 'quarters', 'shrine'];
 
 // Theme → ascending-challenge creature-id pool (the last id is the vault boss).
@@ -58,49 +61,6 @@ function interp(str, params) {
   let out = str ?? '';
   for (const [k, v] of Object.entries(params)) out = out.replaceAll(`{{${k}}}`, v);
   return out;
-}
-
-function dirBetween(from, to) {
-  const dc = to.col - from.col, dr = to.row - from.row;
-  if (dc === 1 && dr === 0) return 'east';
-  if (dc === -1 && dr === 0) return 'west';
-  if (dc === 0 && dr === -1) return 'north';
-  if (dc === 0 && dr === 1) return 'south';
-  return null;
-}
-
-function placeOnGrid(count, rng) {
-  const offsets = () => rshuffle([{ dc: 1, dr: 0 }, { dc: -1, dr: 0 }, { dc: 0, dr: -1 }, { dc: 0, dr: 1 }], rng);
-  const grid = new Map();
-  const positions = [];
-  let col = 0, row = 0;
-  grid.set('0,0', 0); positions.push({ col, row });
-  for (let i = 1; i < count; i++) {
-    let placed = false;
-    for (const { dc, dr } of offsets()) {
-      const nc = col + dc, nr = row + dr;
-      if (!grid.has(`${nc},${nr}`)) { grid.set(`${nc},${nr}`, i); positions.push({ col: nc, row: nr }); col = nc; row = nr; placed = true; break; }
-    }
-    if (!placed) {
-      for (let j = positions.length - 1; j >= 0 && !placed; j--) {
-        const p = positions[j];
-        for (const { dc, dr } of offsets()) {
-          const nc = p.col + dc, nr = p.row + dr;
-          if (!grid.has(`${nc},${nr}`)) { grid.set(`${nc},${nr}`, i); positions.push({ col: nc, row: nr }); col = nc; row = nr; placed = true; break; }
-        }
-      }
-    }
-  }
-  return { grid, positions };
-}
-
-function attachBranch(parentIdx, positions, grid, rng) {
-  const p = positions[parentIdx];
-  for (const { dc, dr } of rshuffle([{ dc: 1, dr: 0 }, { dc: -1, dr: 0 }, { dc: 0, dr: -1 }, { dc: 0, dr: 1 }], rng)) {
-    const nc = p.col + dc, nr = p.row + dr;
-    if (!grid.has(`${nc},${nr}`)) { const idx = positions.length; grid.set(`${nc},${nr}`, idx); positions.push({ col: nc, row: nr }); return idx; }
-  }
-  return -1;
 }
 
 function buildEnemyNpc(npcId, roomId, creatureId, style, c, statBlockFor, extra = {}) {
@@ -193,9 +153,18 @@ export function generateDungeon(seed, opts = {}) {
   const dk = c.domainKeys ?? {};
   const genTreasures = c.treasures?.length ? c.treasures : [{ name: 'hoard of coin', desc: 'A glittering pile of gold.' }];
   const genKeys = c.keys?.length ? c.keys : [{ name: 'iron key', desc: 'A heavy iron key.' }];
+  // Full field pass-through, same contract as scattered loot and the key: the
+  // treasure was the ONE item that kept its pool `desc` unmapped (the vault's
+  // goal object reached the narrator descriptionless) and had its pool/domain
+  // value clobbered by a flat 250 (2026-08-09 audit).
+  const mkTreasure = (t) => {
+    const { desc, ...fields } = t;
+    return { ...fields, id: 'treasure', type: 'treasure',
+             description: desc ?? t.description, value: t.value ?? 250, taken: false };
+  };
   const treasure = (primaryDomain && dt[primaryDomain])
-    ? { ...dt[primaryDomain], id: 'treasure', type: 'treasure', value: 250, taken: false }
-    : { ...rpick(genTreasures, rng), id: 'treasure', type: 'treasure', value: 250, taken: false };
+    ? mkTreasure(dt[primaryDomain])
+    : mkTreasure(rpick(genTreasures, rng));
   const keyItem = (primaryDomain && dk[primaryDomain])
     ? { ...dk[primaryDomain], id: 'found-key', taken: false }
     : { ...rpick(genKeys, rng), id: 'found-key', taken: false };
@@ -260,13 +229,13 @@ export function generateDungeon(seed, opts = {}) {
   let keyPlaced = false;
   for (const bIdx of branchIds) {
     if (spineIds.indexOf(branchParent[bIdx]) <= gateSpineIdx) {
-      rooms[`room-${bIdx}`].loot.push({ id: 'found-key', name: keyItem.name, description: keyItem.desc, taken: false });
+      rooms[`room-${bIdx}`].loot.push({ ...keyItem, description: keyItem.desc ?? keyItem.description, taken: false });
       keyPlaced = true; break;
     }
   }
   if (!keyPlaced) {
     const keyRoomIdx = rpick(spineIds.slice(1, gateSpineIdx + 1), rng);
-    rooms[`room-${keyRoomIdx}`].loot.push({ id: 'found-key', name: keyItem.name, description: keyItem.desc, taken: false });
+    rooms[`room-${keyRoomIdx}`].loot.push({ ...keyItem, description: keyItem.desc ?? keyItem.description, taken: false });
   }
 
   rooms[`room-${spineLen - 1}`].loot.push(treasure);
@@ -297,13 +266,17 @@ export function generateDungeon(seed, opts = {}) {
     }
   }
 
-  // 7. scatter loot in keyless branch rooms
+  // 7. scatter loot in keyless branch rooms.
+  // The WHOLE item passes through — the pool's mechanical fields (heals,
+  // gold, value, lore, consumable) used to be stripped here, so the host's
+  // use-item machinery could never fire on generated loot: the healing
+  // potion in the pool healed nothing by the time it reached a room.
   const lootPool = c.loot ?? [];
   for (const bIdx of branchIds) {
     const room = rooms[`room-${bIdx}`];
     if (room.loot.length === 0 && lootPool.length) {
-      const item = rpick(lootPool, rng);
-      room.loot.push({ id: `loot-${bIdx}`, name: item.name, description: item.desc, taken: false });
+      const { desc, ...fields } = rpick(lootPool, rng);
+      room.loot.push({ ...fields, id: `loot-${bIdx}`, description: desc ?? fields.description, taken: false });
     }
   }
 

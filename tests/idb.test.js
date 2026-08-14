@@ -191,3 +191,105 @@ describe('hot/cold split', () => {
       `an 80-hour campaign writes ${ratio.toFixed(2)}x the hot bytes of a one-hour one — the tail must stay bounded`);
   });
 });
+
+// ─── The archive defects a verification audit demonstrated, pinned shut ─────
+
+// A fake whose writes FAIL — the previous wrapper resolved failure and success
+// identically, so coldPut reported true while writing nothing.
+function failingIndexedDB() {
+  const fail = () => {
+    const req = {};
+    queueMicrotask(() => req.onerror?.());
+    return req;
+  };
+  const ok = (result) => {
+    const req = { result };
+    queueMicrotask(() => req.onsuccess?.());
+    return req;
+  };
+  return {
+    open() {
+      const db = {
+        objectStoreNames: { contains: () => true },
+        createObjectStore: () => ({}),
+        transaction: () => ({
+          objectStore: () => ({
+            put: () => fail(),
+            delete: () => fail(),
+            get: () => ok(undefined),
+            getAllKeys: () => ok([]),
+            getAll: () => ok([]),
+          }),
+        }),
+      };
+      const req = { result: db };
+      queueMicrotask(() => { req.onsuccess?.(); });
+      return req;
+    },
+  };
+}
+
+describe('cold-tier writes report the truth', () => {
+  it('a failed put returns false, not true', async () => {
+    const db = await openCold(failingIndexedDB());
+    assert.equal(await coldPut(db, 'transcript', 'k', [1]), false);
+    assert.equal(await coldDelete(db, 'transcript', 'k'), false);
+    assert.equal(await appendSegment(db, 'transcript', 'run', [1]), null,
+      'a segment whose write failed must not report a key');
+  });
+});
+
+describe('segment keys survive deletion and re-archive', () => {
+  it('prune-then-append no longer overwrites the newest segment', async () => {
+    const db = await openCold(fakeIndexedDB());
+    await appendSegment(db, 'transcript', 'run', [1]);
+    await appendSegment(db, 'transcript', 'run', [2]);
+    await appendSegment(db, 'transcript', 'run', [3]);
+    await coldDelete(db, 'transcript', segmentKey('run', 0));
+    // Count-based indexing would compute index 2 here and destroy [3].
+    await appendSegment(db, 'transcript', 'run', [4]);
+    assert.deepEqual(await readSegments(db, 'transcript', 'run'), [2, 3, 4]);
+  });
+
+  it('an explicit startIndex keys idempotently — re-archiving a range overwrites, not duplicates', async () => {
+    const db = await openCold(fakeIndexedDB());
+    await appendSegment(db, 'transcript', 'run', ['a', 'b'], { startIndex: 0 });
+    await appendSegment(db, 'transcript', 'run', ['a', 'b'], { startIndex: 0 });
+    await appendSegment(db, 'transcript', 'run', ['c'], { startIndex: 2 });
+    assert.deepEqual(await readSegments(db, 'transcript', 'run'), ['a', 'b', 'c']);
+  });
+});
+
+describe('watermark-mode splitSave', () => {
+  const snapshot = (entries) => ({
+    transcript: Array.from({ length: entries }, (_, i) => ({ text: `t${i}` })),
+    world: { ledger: [] },
+  });
+
+  it('archives only what is new since the watermark', () => {
+    // Turn N: 60 entries, 10 already archived, keep 50 → cold is exactly [10, 10).
+    const a = splitSave(snapshot(60), { keepTranscript: 50, archivedTranscript: 10 });
+    assert.equal(a.cold.transcript.length, 0, 'nothing new has left the keep-window yet');
+    // Ten turns later: 80 entries → cold is [10, 30), start 10.
+    const b = splitSave(snapshot(80), { keepTranscript: 50, archivedTranscript: 10 });
+    assert.equal(b.cold.transcript.length, 20);
+    assert.equal(b.cold.transcriptStart, 10);
+    assert.equal(b.hot.archived.transcript, 30, 'the next watermark, adopted on write success');
+    // The next call with the advanced watermark archives nothing again —
+    // the quadratic re-archive is structurally gone.
+    const c = splitSave(snapshot(80), { keepTranscript: 50, archivedTranscript: 30 });
+    assert.equal(c.cold.transcript.length, 0);
+  });
+
+  it('a rewound watermark (undo) re-archives at worst an overlap, never loses entries', () => {
+    const s = splitSave(snapshot(80), { keepTranscript: 50, archivedTranscript: 5 });
+    assert.equal(s.cold.transcriptStart, 5);
+    assert.equal(s.cold.transcript.length, 25);
+  });
+
+  it('keep 0 keeps nothing hot instead of duplicating everything', () => {
+    const { hot, cold } = splitSave(snapshot(10), { keepTranscript: 0, archivedTranscript: 0 });
+    assert.equal(hot.transcript.length, 0);
+    assert.equal(cold.transcript.length, 10);
+  });
+});

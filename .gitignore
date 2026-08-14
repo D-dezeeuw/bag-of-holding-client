@@ -1,3 +1,6 @@
 node_modules/
 *.log
 .DS_Store
+# baked world cartridges are artifacts, not source — a catalog repo or
+# release assets carry them (doc 18 §11)
+worlds/
