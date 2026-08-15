@@ -70,14 +70,18 @@ describe('worldgen schemas — validation', () => {
     assert.ok(validate(bad, SETTLEMENT_SCHEMA).some(e => e.includes('enum')));
   });
 
-  it('validates a red thread of beats', () => {
+  it('validates a red thread of beats — cast is part of the contract now', () => {
     const rt = {
       beats: [{
         id: 'b1', dramaticPurpose: 'the hook', targetPlaytimeMinutes: 45,
         prerequisites: [], setRequiredFlags: ['threat-known'], preferredLocation: null,
+        cast: ['faction-0', 'continent-0.province-1.crown'],
         requiredArchetypes: [{ role: 'informant', notes: 'a witness' }], successors: [],
       }],
     };
     assert.deepEqual(validate(rt, RED_THREAD_SCHEMA), []);
+    const { cast, ...castless } = rt.beats[0];
+    assert.ok(validate({ beats: [castless] }, RED_THREAD_SCHEMA).length > 0,
+      'a beat without a cast slot is rejected — powers are named, not implied');
   });
 });

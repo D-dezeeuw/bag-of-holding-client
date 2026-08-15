@@ -107,11 +107,14 @@ export function isStalled(thread, { turn, patience = 60 }) {
 // or explicitly abandon them, so setups stop evaporating — 'clue' discoveries
 // used to have no content at all.
 
-export function plantSetup(thread, { id, clue, paysInto, dueByAct, turn = 0 }) {
+// `entities` binds the payoff to the world by id — the crown to be toppled,
+// the faction the clue implicates — so act generation can look the obligation
+// up in the cartridge instead of trusting a label only prose remembers.
+export function plantSetup(thread, { id, clue, paysInto, dueByAct, turn = 0, entities = [] }) {
   if (!id || thread.payoffs.some(p => p.id === id)) return thread;
   return {
     ...thread,
-    payoffs: [...thread.payoffs, { id, clue, paysInto, dueByAct, plantedAtTurn: turn, paid: false }],
+    payoffs: [...thread.payoffs, { id, clue, paysInto, entities, dueByAct, plantedAtTurn: turn, paid: false }],
   };
 }
 

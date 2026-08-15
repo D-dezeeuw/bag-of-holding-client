@@ -141,6 +141,16 @@ describe('foreshadowing and payoff', () => {
     assert.equal(t.payoffs.length, 1);
   });
 
+  it('a setup can bind its obligation to entities by id', () => {
+    const t = plantSetup(emptyThread(), {
+      id: 'seal', clue: 'a requisition seal', paysInto: 'kill-the-king',
+      entities: ['continent-0.province-2.crown', 'faction-1'],
+    });
+    assert.deepEqual(t.payoffs[0].entities, ['continent-0.province-2.crown', 'faction-1']);
+    assert.deepEqual(plantSetup(emptyThread(), { id: 'p', clue: 'c', paysInto: 'x' }).payoffs[0].entities,
+      [], 'unbound setups still plant — the binding is an offer, not a toll');
+  });
+
   it('a paid setup stops being due', () => {
     let t = plantSetup(emptyThread(), { id: 'p1', clue: 'c', paysInto: 'x', dueByAct: 1 });
     t = paySetup(t, 'p1', { turn: 50 });

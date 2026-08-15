@@ -72,7 +72,7 @@ export {
 } from './src/worldgen/geography.js';
 export {
   HYDRATION_TEMPLATES, hydrateNode, ensureLineage, lineageContext,
-  gazetteerOf, coerceBeatLocation, runPostConditions,
+  gazetteerOf, coerceBeatLocation, castGazetteerOf, coerceBeatCast, runPostConditions,
   mintProvinceRegions, mintRegionSites, promoteObserved,
   portAnchorOf, mintLandfall, whileYouWereGone,
 } from './src/worldgen/hydrate.js';
