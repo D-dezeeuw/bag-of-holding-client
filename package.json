@@ -1,6 +1,6 @@
 {
   "name": "@zeeuw/bag-of-holding-client",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "description": "The browser host toolkit for AI-driven D&D. A structured/streaming LLM client, a layered blueprint→AI→assemble worldgen pipeline, a procedural dungeon generator, and an overworld travel FSM — the host machinery that the @zeeuw/bag-of-holding rules kernel deliberately leaves out. Zero runtime dependencies, single ESM surface, config-injected (no globals), node-testable.",
   "type": "module",
   "main": "index.js",
@@ -50,7 +50,7 @@
     "prepublishOnly": "npm test"
   },
   "peerDependencies": {
-    "@zeeuw/bag-of-holding": ">=2.0.0"
+    "@zeeuw/bag-of-holding": ">=2.6.0"
   },
   "peerDependenciesMeta": {
     "@zeeuw/bag-of-holding": {
