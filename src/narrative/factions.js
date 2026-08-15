@@ -71,3 +71,29 @@ export function adjustPrice(basePrice, stand) {
 export function isHostile(stand) {
   return stand === 'enemy' || stand === 'nemesis';
 }
+
+/**
+ * Adjust reputation with a faction AND let the shift ripple through its
+ * relations: helping A pleases A's allies (damped by `allyRipple`) and
+ * angers A's enemies (`enemyRipple` is a negative factor, so the sign
+ * flips). Striking A runs the same arithmetic in reverse — A's enemies
+ * warm to you, which is the entire peasant-earns-B's-loyalty-by-hurting-A
+ * arc, as math instead of narration.
+ *
+ * `factions` is the world's faction list (the cartridge's `factions`
+ * collection — records with { id, allies, enemies }). Unknown faction id:
+ * plain adjustment, no ripples — a target the world has no record of has
+ * no relations to ripple through.
+ */
+export function adjustReputationWithRipples(map, factions, factionId, delta, {
+  allyRipple = 0.5, enemyRipple = -0.5,
+} = {}) {
+  let next = adjustReputation(map, factionId, delta);
+  const f = (factions ?? []).find(x => x?.id === factionId);
+  if (!f || !Number.isFinite(delta)) return next;
+  const allyShift = Math.round(delta * allyRipple);
+  const enemyShift = Math.round(delta * enemyRipple);
+  for (const id of f.allies ?? []) next = adjustReputation(next, id, allyShift);
+  for (const id of f.enemies ?? []) next = adjustReputation(next, id, enemyShift);
+  return next;
+}

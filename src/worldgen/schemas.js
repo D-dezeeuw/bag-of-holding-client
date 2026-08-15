@@ -249,7 +249,10 @@ export const CROWN_SCHEMA = {
         type: 'object',
         properties: {
           factionId: { type: 'string' },
-          stance:    { type: 'string', enum: ['ally', 'rival', 'puppet', 'defiant'] },
+          // 'sovereign' — this crown IS the faction's throne, the stored fact
+          // that makes "the King of Faction A" a bindable target. At most one
+          // sovereign per crown (enforced at genesis by bindCrownsToFactions).
+          stance:    { type: 'string', enum: ['sovereign', 'ally', 'rival', 'puppet', 'defiant'] },
         },
         required: ['factionId', 'stance'],
         additionalProperties: false,

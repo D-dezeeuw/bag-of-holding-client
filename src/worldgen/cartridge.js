@@ -54,9 +54,13 @@ export async function bakeCartridge(seed, { complete = null, eraCount = null, se
   const { id: settingId = null, tables = null, syllables = null, hooks = null } = setting ?? {};
   const sk = mintWorldSkeleton(seed, { syllables, hooks });
   let geo = sk.geo;
-  const lore = mintLore(sk, seed, { eraCount });
 
+  // The world blueprint rolls BEFORE the lore so its faction archetypes feed
+  // the faction stubs — a host's setting tables re-skin the powers the same
+  // way they re-skin everything else. Order is safe: both are pure and draw
+  // from independent seeded streams.
   const world = deriveBlueprint(null, seed, 'world', { tables });
+  const lore = mintLore(sk, seed, { eraCount, factionSlots: world.factionSlots });
   const slices = { [`world`]: world };
   for (const cId of sk.continents) {
     const cNode = geo.nodes[cId];
@@ -90,22 +94,23 @@ export async function bakeCartridge(seed, { complete = null, eraCount = null, se
     if (!out.provisional) outlines[id] = out.result;
   }
 
+  const { factions = [], warState = null, ...loreCore } = lore;
   const data = {
     seed,
     settingId,
     geo,
     continents: sk.continents,
     provinces: sk.provinces,
-    lore,
+    lore: loreCore,
     slices,
     outlines,
-    // v2 collections. Baked empty until the depth phases fill them; present
-    // from the bake so a v2 cartridge and a migrated v1 cartridge have the
-    // same shape (same keys, same order — the migration appends these four
-    // in this order).
-    factions: [],
+    // v2 collections. Factions and the war state are minted at genesis (the
+    // powers precede the player); npcs and routes stay empty until their
+    // phases. Key order is part of the format — same keys, same order as
+    // MIGRATIONS[1] materializes for v1 artifacts.
+    factions,
     npcs: [],
-    warState: null,
+    warState,
     routes: [],
   };
   const body = wrapEnvelope(data, CARTRIDGE_VERSION);
