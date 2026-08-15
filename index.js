@@ -80,6 +80,10 @@ export {
   bakeCartridge, mountCartridge, catalogEntry,
   CARTRIDGE_VERSION, CARTRIDGE_MIGRATIONS,
 } from './src/worldgen/cartridge.js';
+// Entity-id ⇄ cell addressing over a cartridge: what does the world say about
+// entity X, and how to write an answer back. The fold base for session replay
+// and the future revision format both speak this addressing.
+export { cellsOf, entityIdsOf, projectCells } from './src/worldgen/revision.js';
 export { mintWorldSkeleton, adoptFlatWorld, CLIMATE_BANDS, SYLLABLES, STUB_HOOKS } from './src/worldgen/skeleton.js';
 export {
   WORLD_SEED_SCHEMA, REGION_SCHEMA, NPC_SCHEMA, FACTION_SCHEMA,
