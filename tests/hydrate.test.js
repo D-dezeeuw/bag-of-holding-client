@@ -12,6 +12,7 @@ import { mintLore } from '../src/worldgen/lore.js';
 import { markVisited, discoverAncestors, knownMap, addNode, emptyGeography, connect } from '../src/worldgen/geography.js';
 import {
   hydrateNode, ensureLineage, lineageContext, gazetteerOf, coerceBeatLocation,
+  castGazetteerOf, coerceBeatCast,
   mintProvinceRegions, mintRegionSites, promoteObserved, HYDRATION_TEMPLATES,
 } from '../src/worldgen/hydrate.js';
 
@@ -192,6 +193,31 @@ describe('gazetteer + beat coercion', () => {
     const wild = { id: 'b2', preferredLocation: 'the invented citadel of nowhere' };
     const coerced = coerceBeatLocation(wild, gaz);
     assert.ok(gaz.some(g => g.id === coerced.preferredLocation));
+  });
+
+  it('cast coercion: exact ids pass, prose re-binds, inventions drop', () => {
+    const data = {
+      factions: [{ id: 'faction-0', name: 'The Saltglass Concord' }],
+      npcs: [{ id: 'continent-0.province-0.npc-0', name: 'Mara of the Sluice' }],
+      lore: { crowns: [{ id: 'continent-0.province-0.crown', name: 'House Marren' }] },
+    };
+    const gaz = castGazetteerOf(data);
+    assert.equal(gaz.length, 3, 'factions, crowns and npcs are all castable');
+
+    const beat = coerceBeatCast({ id: 'b', cast: [
+      'faction-0',                     // exact id — passes
+      'the crown of House Marren',     // prose — re-binds to the crown entity
+      'Mara',                          // name fragment — re-binds to the npc
+      'the drowned parliament of eels' // invention — dropped, never invented
+    ] }, gaz);
+    assert.deepEqual(beat.cast, [
+      'faction-0', 'continent-0.province-0.crown', 'continent-0.province-0.npc-0',
+    ]);
+
+    // Total: no cast is a no-op, an empty gazetteer empties the cast.
+    const castless = { id: 'b2' };
+    assert.equal(coerceBeatCast(castless, gaz), castless);
+    assert.deepEqual(coerceBeatCast({ id: 'b3', cast: ['anyone'] }, []).cast, []);
   });
 });
 

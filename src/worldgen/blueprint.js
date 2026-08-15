@@ -421,12 +421,16 @@ export function worldSeedConstraints(bp) {
   return bp ? `\n\nUse these creative constraints:\n${blueprintContext(bp)}` : '';
 }
 
-export function beatsHints(bp) {
+export function beatsHints(bp, { cast = [] } = {}) {
   const arc = bp?.beatArc?.length
     ? `\n\nUse this story arc structure: ${bp.beatArc.join(' → ')}. Each beat maps to one step in this arc.` : '';
   const fac = bp?.factionSlots?.length
     ? `\nTie beats to these faction types: ${bp.factionSlots.map(f => f.type).join(', ')}.` : '';
-  return arc + fac;
+  // The dramatis personae, when the host has a baked world to offer: beats
+  // cast REAL powers by id, so "defeat the King" is a checkable target.
+  const who = cast.length
+    ? `\nCast beats from these powers, using their ids verbatim in the beat's cast field:\n${cast.map(c => `- ${c.id} — ${c.name}`).join('\n')}` : '';
+  return arc + fac + who;
 }
 
 export function factionsHints(bp) {

@@ -68,6 +68,12 @@ describe('blueprint context formatters', () => {
   it('factionsHints asks for exactly N factions', () => {
     assert.match(factionsHints(bp), /Create exactly 3 factions/);
   });
+  it('beatsHints offers the dramatis personae by id when the host has one', () => {
+    const hint = beatsHints(bp, { cast: [{ id: 'faction-0', name: 'The Ashen Concord' }] });
+    assert.match(hint, /faction-0 — The Ashen Concord/);
+    assert.match(hint, /ids verbatim/);
+    assert.equal(beatsHints(bp), beatsHints(bp, { cast: [] }), 'no cast, no extra prose');
+  });
 });
 
 describe('pipeline', () => {

@@ -233,6 +233,37 @@ export function coerceBeatLocation(beat, gazetteer) {
   return { ...beat, preferredLocation: scored[0].g.id };
 }
 
+// The world's dramatis personae: every power a beat may cast, as {id, name}.
+// Factions, crowns and npcs — the entities the depth phases store — so "defeat
+// the King of Faction A" can point at the crown entity the war names, not at
+// a label only prose remembers.
+export function castGazetteerOf(data) {
+  const out = [];
+  for (const f of data?.factions ?? []) out.push({ id: f.id, name: f.name });
+  for (const c of data?.lore?.crowns ?? []) out.push({ id: c.id, name: c.name });
+  for (const n of data?.npcs ?? []) out.push({ id: n.id, name: n.name });
+  return out;
+}
+
+// Deterministic cast coercion, the same move coerceBeatLocation makes for
+// places: an exact entity id passes, a near-miss re-binds by token overlap,
+// and an entry matching NOTHING is dropped — casting a random power is worse
+// than casting none. Never invents an entity; moves the intention.
+export function coerceBeatCast(beat, gazetteer) {
+  if (!beat?.cast?.length) return beat;
+  const cast = [];
+  for (const entry of beat.cast) {
+    if (gazetteer.some(g => g.id === entry)) { cast.push(entry); continue; }
+    const want = String(entry).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    const scored = gazetteer.map(g => {
+      const have = `${g.id} ${g.name}`.toLowerCase();
+      return { g, score: want.filter(w => have.includes(w)).length };
+    }).sort((a, b) => b.score - a.score || (a.g.id < b.g.id ? -1 : 1));
+    if (scored[0]?.score > 0 && !cast.includes(scored[0].g.id)) cast.push(scored[0].g.id);
+  }
+  return { ...beat, cast };
+}
+
 // ─── Minting (what a hydration leaves behind) ────────────────────────────────
 
 // A province's first regions — closes the who-mints-the-first-region gap: the

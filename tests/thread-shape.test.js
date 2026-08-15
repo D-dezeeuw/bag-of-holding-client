@@ -19,6 +19,7 @@ import {
   planJourney, gazetteerOf, coerceBeatLocation,
   plantSetup, emptyThread,
   mintWorldClocks, advanceWorld, whileYouWereGone, fold,
+  castGazetteerOf, coerceBeatCast, directive, pushAct, makeAct,
 } from '../index.js';
 
 // Hunt a seed whose genesis rolls the full premise: a faction with two
@@ -154,17 +155,51 @@ describe('the war advances while the player travels (phase B)', () => {
   });
 });
 
+describe('the story binds to the powers (phase E′)', () => {
+  // The throne the first describe block proved exists — A's own crown.
+  const throne = data.lore.crowns.find(c =>
+    c.factionRelations.some(r => r.factionId === A.id && r.stance === 'sovereign'));
+
+  it('a beat casts a POWER by id, and a prose cast coerces to the real entity', () => {
+    const gaz = castGazetteerOf(data);
+    assert.ok(gaz.some(g => g.id === A.id), 'factions are castable');
+    assert.ok(gaz.some(g => g.id === throne.id), 'crowns are castable');
+
+    // An exact id passes untouched; prose naming the throne re-binds to its
+    // entity; pure invention is dropped, not hallucinated into the world.
+    const beat = coerceBeatCast({
+      id: 'b-final', dramaticPurpose: 'face the King',
+      cast: [throne.id, `the king of ${A.name}`, 'the moon-emperor of nowhere'],
+    }, gaz);
+    assert.equal(beat.cast[0], throne.id);
+    assert.ok(beat.cast.every(id => gaz.some(g => g.id === id)),
+      'every surviving cast entry is a real entity');
+    assert.ok(!beat.cast.includes('the moon-emperor of nowhere'));
+
+    // And the GM steer serves that cast: "defeat the King" is checkable now.
+    const thread = pushAct(emptyThread(), makeAct({
+      id: 'act-final', title: 'The Heartland', premise: 'cross and topple',
+      beats: [{ id: 'b-final', dramaticPurpose: 'face the King', cast: beat.cast }],
+    }));
+    assert.deepEqual(directive(thread).cast, beat.cast);
+  });
+
+  it('a payoff references entities by id, not by label', () => {
+    const thread = plantSetup(emptyThread(), {
+      id: 'the-kings-name', clue: 'a requisition seal none of the elders recognise',
+      paysInto: 'kill-the-king', entities: [throne.id, A.id], dueByAct: 4, turn: 1,
+    });
+    const [payoff] = thread.payoffs;
+    assert.deepEqual(payoff.entities, [throne.id, A.id]);
+    const ids = entityIdsOf(data);
+    for (const id of payoff.entities) {
+      assert.ok(ids.has(id), `${id} is in the cartridge — the obligation is checkable`);
+      assert.ok(Object.keys(cellsOf(data, id)).length > 0, `${id} resolves to cells`);
+    }
+  });
+});
+
 describe('what the engine still cannot hold (flips green phase by phase)', () => {
-  it('phase E′: a beat binds to a POWER — cast carries the crown/faction id', { todo: true }, () => {
-    // BEAT_SCHEMA still has no cast field; directive() reads beat.cast, which
-    // nothing produces. "Defeat the King" is not yet a checkable target.
-  });
-
-  it('phase E′: a payoff references entities by id, not by label', { todo: true }, () => {
-    // plantSetup({ paysInto }) is still a free string; nothing ties
-    // 'kill-the-king' to the crown entity the first test found.
-  });
-
   it('phase D: the King is a PERSON — an npc entity with voice and wants', { todo: true }, () => {
     // data.npcs is still empty at genesis; the crown names a house, not a
     // face the table can hate.

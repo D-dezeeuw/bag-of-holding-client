@@ -128,6 +128,7 @@ export const BEAT_SCHEMA = {
     prerequisites:         { type: 'array', items: { type: 'string' } },
     setRequiredFlags:      { type: 'array', items: { type: 'string' } },
     preferredLocation:     { type: ['string', 'null'] },
+    cast:                  { type: 'array', items: { type: 'string' } },
     requiredArchetypes: {
       type: 'array',
       items: {
@@ -142,7 +143,7 @@ export const BEAT_SCHEMA = {
     },
     successors: { type: 'array', items: { type: 'string' } },
   },
-  required: ['id', 'dramaticPurpose', 'targetPlaytimeMinutes', 'prerequisites', 'setRequiredFlags', 'preferredLocation', 'requiredArchetypes', 'successors'],
+  required: ['id', 'dramaticPurpose', 'targetPlaytimeMinutes', 'prerequisites', 'setRequiredFlags', 'preferredLocation', 'cast', 'requiredArchetypes', 'successors'],
   additionalProperties: false,
 };
 
