@@ -115,10 +115,11 @@ describe('mountCartridge', () => {
     const cart = await bakeCartridge(42);
     // Since Phase A the powers precede the player: factions are minted at
     // genesis (with the guaranteed fault line, so a war usually exists);
-    // npcs and routes wait for their phases.
+    // since Phase D each power has a face. Routes wait for their phase.
     assert.ok(cart.data.factions.length >= 2, 'a world has powers');
     assert.ok(cart.data.factions.every(f => /^faction-\d+$/.test(f.id) && f.stub === true));
-    assert.deepEqual(cart.data.npcs, []);
+    assert.equal(cart.data.npcs.length, cart.data.factions.length, 'one face per power');
+    assert.ok(cart.data.npcs.every(n => /^npc-\d+$/.test(n.id) && n.stub === true));
     assert.deepEqual(cart.data.routes, []);
     // The digest is computed over JSON.stringify(data), so key order is part
     // of the format: the four v2 keys come after the original eight, in this

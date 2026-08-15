@@ -173,6 +173,38 @@ describe('hydrateNode', () => {
     assert.ok(out.result.sites.every(s => sk.geo.nodes[s]));
   });
 
+  it('npc hydration coerces drifted links to null and the fallback is a person', async () => {
+    const sk = mintWorldSkeleton(9);
+    const { crowns, factions, npcs } = mintLore(sk, 9);
+    const stub = npcs[0];
+
+    // Drifted ids come back from the model → coerced to null, prose kept.
+    const out = await hydrateNode(sk.geo, stub.id, {
+      entity: { ...stub, kind: 'npc' },
+      factions, crowns,
+      complete: async () => ({
+        id: stub.id, name: stub.name, role: stub.role, voice: stub.voice,
+        wants: stub.wants, seatOf: 'continent-9.province-9.crown', leads: 'faction-99',
+        description: 'a face with a history', digest: 'd',
+      }),
+    });
+    assert.equal(out.ok, true);
+    assert.ok(out.coerced.includes('npcLinksResolve'));
+    assert.equal(out.result.seatOf, null);
+    assert.equal(out.result.leads, null);
+    assert.equal(out.result.description, 'a face with a history');
+
+    // No model at all → the fallback keeps the stub playable: voice and
+    // wants become prose, links survive untouched.
+    const dry = await hydrateNode(sk.geo, stub.id, {
+      entity: { ...stub, kind: 'npc' }, factions, crowns, complete: null,
+    });
+    assert.equal(dry.ok, true);
+    assert.match(dry.result.description, new RegExp(stub.wants[0]));
+    assert.equal(dry.result.seatOf, stub.seatOf, 'the minted links are already real');
+    assert.equal(dry.result.leads, stub.leads);
+  });
+
   it('is atomic: an unknown node yields no patches and the same geo', async () => {
     const { geo } = skeletonWith();
     const out = await hydrateNode(geo, 'continent-9.region-9', { complete: null });

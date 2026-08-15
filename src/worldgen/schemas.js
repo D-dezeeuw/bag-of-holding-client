@@ -103,6 +103,27 @@ export const NPC_SCHEMA = {
   additionalProperties: false,
 };
 
+// The face of a power — a WORLD npc (data.npcs), distinct from the
+// settlement-scoped NPC_SCHEMA above: kings and leaders link to entities by
+// id (`seatOf` a crown, `leads` a faction) and carry a voice the DM performs
+// and wants the engine can check, not an innkeeper's greeting.
+export const WORLD_NPC_SCHEMA = {
+  type: 'object',
+  properties: {
+    id:          { type: 'string' },
+    name:        { type: 'string' },
+    role:        { type: 'string', enum: ['sovereign', 'leader'] },
+    voice:       { type: 'string' },
+    wants:       { type: 'array', items: { type: 'string' } },
+    seatOf:      { type: ['string', 'null'] },
+    leads:       { type: ['string', 'null'] },
+    description: { type: 'string' },
+    digest:      { type: 'string' },
+  },
+  required: ['id', 'name', 'role', 'voice', 'wants', 'seatOf', 'leads', 'description', 'digest'],
+  additionalProperties: false,
+};
+
 export const FACTION_SCHEMA = {
   type: 'object',
   properties: {

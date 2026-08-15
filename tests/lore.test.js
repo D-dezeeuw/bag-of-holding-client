@@ -12,8 +12,9 @@ import { mintWorldSkeleton } from '../src/worldgen/skeleton.js';
 import {
   mintEras, mintLegendStubs, mintCrownStub, mintLore, LEGITIMACIES,
   mintFactionStubs, mintWarState, bindCrownsToFactions, WAR_INTENSITIES,
+  mintNpcStubs, NPC_VOICES, NPC_WANTS,
 } from '../src/worldgen/lore.js';
-import { CROWN_SCHEMA, LEGEND_SCHEMA, FACTION_SCHEMA } from '../src/worldgen/schemas.js';
+import { CROWN_SCHEMA, LEGEND_SCHEMA, FACTION_SCHEMA, WORLD_NPC_SCHEMA } from '../src/worldgen/schemas.js';
 
 describe('mintEras', () => {
   it('is deterministic and mints 3–5 ordered epochs', () => {
@@ -187,5 +188,49 @@ describe('factions and the war state (Phase A)', () => {
     assert.equal(lore.factions.length, 2);
     assert.deepEqual(lore.factions.map(f => f.archetype), ['levy compact', 'free league']);
     assert.ok('warState' in lore);
+  });
+});
+
+describe('the faces of the powers (Phase D)', () => {
+  const sk = mintWorldSkeleton(9);
+
+  it('mints one face per faction, deterministic, linked both ways by id', () => {
+    const { crowns, factions, npcs } = mintLore(sk, 9);
+    assert.deepEqual(npcs, mintNpcStubs(9, { crowns, factions }), 'same seed, same faces');
+    assert.equal(npcs.length, factions.length, 'every power has a face');
+    assert.deepEqual(npcs.map(n => n.id), npcs.map((_, i) => `npc-${i}`));
+
+    for (const [i, f] of factions.entries()) {
+      const face = npcs[i];
+      assert.equal(face.leads, f.id, 'the face leads its own power');
+      const throne = crowns.find(c =>
+        c.factionRelations.some(r => r.factionId === f.id && r.stance === 'sovereign'));
+      if (throne) {
+        assert.equal(face.role, 'sovereign', `${f.id} holds a throne, so its face is crowned`);
+        assert.equal(face.seatOf, throne.id, 'seated on the FIRST of its thrones');
+        assert.ok(face.name.includes(throne.name), 'named into the dynasty');
+      } else {
+        assert.equal(face.role, 'leader');
+        assert.equal(face.seatOf, null);
+      }
+      assert.ok(NPC_VOICES.includes(face.voice));
+      assert.equal(face.wants.length, 2);
+      assert.ok(face.wants.every(w => NPC_WANTS.includes(w)));
+      assert.notEqual(face.wants[0], face.wants[1], 'two different wants');
+    }
+  });
+
+  it('npc stubs are a subset of WORLD_NPC_SCHEMA', () => {
+    const { crowns, factions } = mintLore(sk, 9);
+    for (const n of mintNpcStubs(9, { crowns, factions })) {
+      for (const k of Object.keys(n)) {
+        if (k === 'stub') continue;
+        assert.ok(k in WORLD_NPC_SCHEMA.properties, `npc stub field ${k} not in schema`);
+      }
+    }
+  });
+
+  it('no factions, no faces — and no crash', () => {
+    assert.deepEqual(mintNpcStubs(9, {}), []);
   });
 });
