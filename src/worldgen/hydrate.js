@@ -17,6 +17,7 @@ import { makePatch } from '../ledger/patch.js';
 import {
   CONTINENT_OUTLINE_SCHEMA, PROVINCE_OUTLINE_SCHEMA, REGION_SCHEMA,
   SETTLEMENT_SCHEMA, CROWN_SCHEMA, LEGEND_SCHEMA, FACTION_SCHEMA,
+  WORLD_NPC_SCHEMA,
 } from './schemas.js';
 
 // ─── Template registry ───────────────────────────────────────────────────────
@@ -171,6 +172,20 @@ export const HYDRATION_TEMPLATES = Object.freeze({
         digest: `${stub.name} — ${archetype ?? 'a power with borders'}`,
       };
     },
+  },
+  npc: {
+    full: { schema: WORLD_NPC_SCHEMA, tier: 'tiny', retries: 1 },
+    consumes: ['tone', 'threatExpression'],
+    method: 'llm',
+    // The links are the point: seatOf must be a real crown, leads a real
+    // faction. Coerce to null rather than reject — a face whose prose is
+    // good but whose id drifted is still a face.
+    post: ['npcLinksResolve'],
+    fallback: (stub) => ({
+      ...stripStub(stub),
+      description: `${stub.name}, who ${stub.voice} — and wants ${stub.wants.join(', and ')}.`,
+      digest: `${stub.name} — the face of a power`,
+    }),
   },
 });
 
@@ -392,6 +407,19 @@ const POST_CHECKS = {
     if (result.seat == null || ctx.geo.nodes[result.seat]) return [];
     return [{ check: 'seatResolves', at: 'seat', value: result.seat,
       coerce: (r) => ({ ...r, seat: null }) }];
+  },
+  // A world npc's links must hold: seatOf a real crown, leads a real faction.
+  npcLinksResolve(result, ctx) {
+    const out = [];
+    if (result.seatOf != null && !(ctx.crowns ?? []).some(c => c.id === result.seatOf)) {
+      out.push({ check: 'npcLinksResolve', at: 'seatOf', value: result.seatOf,
+        coerce: (r) => ({ ...r, seatOf: null }) });
+    }
+    if (result.leads != null && !(ctx.factions ?? []).some(f => f.id === result.leads)) {
+      out.push({ check: 'npcLinksResolve', at: 'leads', value: result.leads,
+        coerce: (r) => ({ ...r, leads: null }) });
+    }
+    return out;
   },
   sitesResolve(result, ctx) {
     const bad = (result.sites ?? []).filter(s => !ctx.geo.nodes[s]);

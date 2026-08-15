@@ -95,13 +95,14 @@ export {
   WORLD_SEED_SCHEMA, REGION_SCHEMA, NPC_SCHEMA, FACTION_SCHEMA,
   BEAT_SCHEMA, RED_THREAD_SCHEMA, FACTIONS_SCHEMA, SETTLEMENT_SCHEMA,
   CONTINENT_OUTLINE_SCHEMA, CONTINENTS_OUTLINE_SCHEMA, PROVINCE_OUTLINE_SCHEMA,
-  CROWN_SCHEMA, LEGEND_SCHEMA,
+  CROWN_SCHEMA, LEGEND_SCHEMA, WORLD_NPC_SCHEMA,
 } from './src/worldgen/schemas.js';
 export {
   mintEras, mintLegendStubs, mintCrownStub, mintLore,
-  mintFactionStubs, mintWarState, bindCrownsToFactions,
+  mintFactionStubs, mintWarState, bindCrownsToFactions, mintNpcStubs,
   ERA_NAMES, LEGEND_TITLE_A, LEGEND_TITLE_B, CROWN_TITLES, LEGITIMACIES,
   FACTION_NAME_A, FACTION_NAME_B, WAR_CAUSES, WAR_INTENSITIES,
+  NPC_GIVEN_NAMES, NPC_VOICES, NPC_WANTS,
 } from './src/worldgen/lore.js';
 
 // ── Dungeon ────────────────────────────────────────────────────────────────────

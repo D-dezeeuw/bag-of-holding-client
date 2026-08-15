@@ -59,6 +59,35 @@ export const WAR_CAUSES = Object.freeze([
 
 export const WAR_INTENSITIES = Object.freeze(['cold', 'raiding', 'open']);
 
+// The faces of the powers. Given names in no culture's register (invented,
+// like every table here); voices are manners of speaking a DM can perform on
+// sight; wants are CONCRETE — a want the engine can check ("the border stones
+// put back") beats a temperament it can only assert.
+export const NPC_GIVEN_NAMES = Object.freeze([
+  'Maren', 'Colwyn', 'Sefa', 'Ondred', 'Talvace', 'Bryn',
+  'Ishane', 'Vessa', 'Aldric', 'Noor', 'Ederra', 'Halvard',
+]);
+export const NPC_VOICES = Object.freeze([
+  'speaks in ledger figures and old debts',
+  'never raises their voice, and never repeats an order',
+  'quotes drowned poets at unhelpful moments',
+  'laughs first and decides later',
+  'asks questions the way a fisherman sets lines',
+  'talks to everyone as if resuming an old argument',
+  'measures every sentence like grain in a famine',
+  'swears by bells and means it',
+]);
+export const NPC_WANTS = Object.freeze([
+  'the war ended on their own terms',
+  'an heir worth the name',
+  'the old border stones put back',
+  'a debt from before the thaw repaid',
+  'their name in a founding charter',
+  'the harvest tithe forgiven',
+  'a rival house brought to the table',
+  'the roads safe as far as the last bell',
+]);
+
 // ─── Minters ─────────────────────────────────────────────────────────────────
 
 // 3–5 named epochs, oldest first. Every legend, ruin, and landmark carries an
@@ -204,6 +233,33 @@ export function bindCrownsToFactions(crowns, factions, seed) {
   });
 }
 
+// Give every power a face: one npc per faction, world-scoped ids `npc-N`.
+// A faction seated on a throne (some crown's sovereign) gets a SOVEREIGN —
+// the King of Faction A is finally a person, linked both ways by id: the npc
+// `seatOf` the crown and `leads` the faction. A throneless power gets a
+// leader. Voice and wants ride on the stub so the table can hate a face
+// before hydration ever writes prose. Pure and seeded, like every minter.
+export function mintNpcStubs(seed, { crowns = [], factions = [] } = {}) {
+  const rng = mulberry32(((seed ?? 1) + 606) >>> 0);
+  const npcs = [];
+  for (const f of factions) {
+    const throne = crowns.find(c =>
+      c.factionRelations?.some(r => r.factionId === f.id && r.stance === 'sovereign'));
+    const given = pick(NPC_GIVEN_NAMES, rng);
+    npcs.push({
+      id: `npc-${npcs.length}`,
+      name: `${given} of ${throne ? throne.name : f.name}`,
+      role: throne ? 'sovereign' : 'leader',
+      seatOf: throne?.id ?? null,
+      leads: f.id,
+      voice: pick(NPC_VOICES, rng),
+      wants: pickN(NPC_WANTS, 2, rng),
+      stub: true,
+    });
+  }
+  return npcs;
+}
+
 // Walk a minted skeleton and populate the whole lore layer in one pass.
 // Pure: same skeleton + seed → same lore, which is what lets a cartridge
 // carry it and a replay reproduce it. `factionSlots` (the world blueprint's
@@ -227,5 +283,6 @@ export function mintLore({ geo, continents, provinces }, seed, { eraCount = null
   const factions = mintFactionStubs(seed, { provincesByContinent, slots: factionSlots });
   const warState = mintWarState(seed, factions);
   crowns = bindCrownsToFactions(crowns, factions, seed);
-  return { eras, legends, crowns, factions, warState };
+  const npcs = mintNpcStubs(seed, { crowns, factions });
+  return { eras, legends, crowns, factions, warState, npcs };
 }

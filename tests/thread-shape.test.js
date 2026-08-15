@@ -199,9 +199,31 @@ describe('the story binds to the powers (phase E′)', () => {
   });
 });
 
-describe('what the engine still cannot hold (flips green phase by phase)', () => {
-  it('phase D: the King is a PERSON — an npc entity with voice and wants', { todo: true }, () => {
-    // data.npcs is still empty at genesis; the crown names a house, not a
-    // face the table can hate.
+describe('the King is a person (phase D)', () => {
+  it('the crown has a face: an npc entity with voice, wants, and both links', () => {
+    const throne = data.lore.crowns.find(c =>
+      c.factionRelations.some(r => r.factionId === A.id && r.stance === 'sovereign'));
+
+    // Faction A's face is a SOVEREIGN — seated on A's own throne, by id.
+    const king = data.npcs.find(n => n.leads === A.id);
+    assert.ok(king, `${A.name} has a face`);
+    assert.equal(king.role, 'sovereign');
+    assert.equal(king.seatOf, throne.id, 'the King holds the very throne the hero crosses to');
+
+    // A person, not a placard: a voice to perform, wants the engine can check.
+    assert.ok(king.voice.length > 0, 'the King speaks somehow');
+    assert.ok(king.wants.length >= 2 && king.wants.every(w => w.length > 0),
+      'the King wants concrete things');
+
+    // A full entity: addressable, cell-resolvable, castable.
+    assert.ok(entityIdsOf(data).has(king.id));
+    assert.equal(cellsOf(data, king.id).npc, king);
+    assert.ok(castGazetteerOf(data).some(g => g.id === king.id),
+      'a beat can cast the King himself now, not just his crown');
+
+    // And every power has a face — the world is peopled, not labelled.
+    for (const f of data.factions) {
+      assert.ok(data.npcs.some(n => n.leads === f.id), `${f.name} has a face`);
+    }
   });
 });

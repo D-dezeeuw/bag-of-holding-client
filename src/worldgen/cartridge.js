@@ -94,7 +94,7 @@ export async function bakeCartridge(seed, { complete = null, eraCount = null, se
     if (!out.provisional) outlines[id] = out.result;
   }
 
-  const { factions = [], warState = null, ...loreCore } = lore;
+  const { factions = [], warState = null, npcs = [], ...loreCore } = lore;
   const data = {
     seed,
     settingId,
@@ -104,12 +104,12 @@ export async function bakeCartridge(seed, { complete = null, eraCount = null, se
     lore: loreCore,
     slices,
     outlines,
-    // v2 collections. Factions and the war state are minted at genesis (the
-    // powers precede the player); npcs and routes stay empty until their
-    // phases. Key order is part of the format — same keys, same order as
-    // MIGRATIONS[1] materializes for v1 artifacts.
+    // v2 collections. Factions, the war state and the powers' faces are
+    // minted at genesis (the powers precede the player, and they have names);
+    // routes stay empty until their phase. Key order is part of the format —
+    // same keys, same order as MIGRATIONS[1] materializes for v1 artifacts.
     factions,
-    npcs: [],
+    npcs,
     warState,
     routes: [],
   };
