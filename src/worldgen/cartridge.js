@@ -6,11 +6,12 @@
 // the same cartridge get byte-identical lore. A session is a patch ledger over
 // this immutable base; nothing here is ever written after the bake.
 //
-// The cartridge deliberately bakes nothing beyond the tree + lore + slices —
-// no coordinates, no extra flags — so the envelope survives every phase of
-// doc 18 unchanged. Mounting an old cartridge in a newer client runs the
-// envelope migration chain; the migrated shape lives in the session, the
-// artifact stays untouched.
+// The cartridge bakes the tree + lore + slices, and (since v2) four content
+// collections — factions, npcs, warState, routes — that the worldgen depth
+// phases fill; nothing speculative beyond those, no coordinates, no extra
+// flags. Mounting an old cartridge in a newer client runs the envelope
+// migration chain; the migrated shape lives in the session, the artifact
+// stays untouched.
 //
 // A cartridge also records its SETTING. A host that re-skins the genre passes
 // its archetype tables, naming banks and stub hooks here, and the bake honours
@@ -26,11 +27,21 @@ import { deriveBlueprint } from './blueprint.js';
 import { hydrateNode } from './hydrate.js';
 import { wrapEnvelope, loadEnvelope, digest } from '../persistence/envelope.js';
 
-export const CARTRIDGE_VERSION = 1;
+export const CARTRIDGE_VERSION = 2;
 
-// Migrations from older cartridge formats. v1 is the first, so the chain is
-// empty; every future format change adds a step here, never edits artifacts.
-export const CARTRIDGE_MIGRATIONS = Object.freeze({});
+// Migrations from older cartridge formats. Each step MATERIALIZES the fields
+// its target version adds — an identity migration (`d => d`) would pass
+// loadEnvelope and then hand v2 readers `undefined` where they expect `[]`,
+// which is strictly worse than refusing. The four v2 collections land empty
+// here and get content from the depth phases (factions as tree entities, NPCs
+// with voice/wants, war state, red-thread routes); doing the format change
+// once, ahead of them, is what lets all five phases ship without ever touching
+// this file again. Key order matters: the digest is computed over
+// JSON.stringify(data), so the migration appends the new keys in exactly the
+// order bakeCartridge emits them.
+export const CARTRIDGE_MIGRATIONS = Object.freeze({
+  1: (d) => ({ ...d, factions: [], npcs: [], warState: null, routes: [] }),
+});
 
 // Bake a world: skeleton + lore + the derived blueprint slices for every
 // continent and province, with every continent/province minting its region
@@ -88,6 +99,14 @@ export async function bakeCartridge(seed, { complete = null, eraCount = null, se
     lore,
     slices,
     outlines,
+    // v2 collections. Baked empty until the depth phases fill them; present
+    // from the bake so a v2 cartridge and a migrated v1 cartridge have the
+    // same shape (same keys, same order — the migration appends these four
+    // in this order).
+    factions: [],
+    npcs: [],
+    warState: null,
+    routes: [],
   };
   const body = wrapEnvelope(data, CARTRIDGE_VERSION);
   return { ...body, c: digest(JSON.stringify(data)) };

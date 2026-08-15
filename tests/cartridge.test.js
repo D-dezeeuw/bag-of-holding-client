@@ -6,6 +6,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { bakeCartridge, mountCartridge, catalogEntry, CARTRIDGE_VERSION } from '../src/worldgen/cartridge.js';
 import { childrenOf } from '../src/worldgen/geography.js';
@@ -108,6 +109,70 @@ describe('mountCartridge', () => {
       { onError: (code) => errors.push(code) });
     assert.equal(mounted, null);
     assert.deepEqual(errors, ['future-version']);
+  });
+
+  it('bakes the v2 collections empty, in a stable key order', async () => {
+    const cart = await bakeCartridge(42);
+    assert.deepEqual(cart.data.factions, []);
+    assert.deepEqual(cart.data.npcs, []);
+    assert.equal(cart.data.warState, null);
+    assert.deepEqual(cart.data.routes, []);
+    // The digest is computed over JSON.stringify(data), so key order is part
+    // of the format: the four v2 keys come after the original eight, in this
+    // exact order — the same order MIGRATIONS[1] appends them.
+    assert.deepEqual(Object.keys(cart.data), [
+      'seed', 'settingId', 'geo', 'continents', 'provinces', 'lore', 'slices',
+      'outlines', 'factions', 'npcs', 'warState', 'routes',
+    ]);
+  });
+});
+
+describe('the v1 → v2 migration', () => {
+  // A REAL artifact baked by 0.16.0 (v1, eight data keys), checked in so the
+  // migration is tested against the past, not against a reconstruction of it.
+  const fixture = readFileSync(
+    new URL('./fixtures/cartridge-v1-seed-77.json', import.meta.url), 'utf8');
+
+  it('mounts a checked-in v1 cartridge and materializes the v2 collections', () => {
+    const errors = [];
+    const mounted = mountCartridge(fixture, { onError: (code) => errors.push(code) });
+    assert.notEqual(mounted, null, 'a v1 artifact must keep mounting forever');
+    assert.deepEqual(errors, [], 'a clean v1 file migrates without complaint');
+    // Materialized, not undefined — an identity migration would pass
+    // loadEnvelope and then break every v2 reader downstream.
+    assert.deepEqual(mounted.factions, []);
+    assert.deepEqual(mounted.npcs, []);
+    assert.equal(mounted.warState, null);
+    assert.deepEqual(mounted.routes, []);
+    // And the v1 content is still all there.
+    assert.equal(mounted.seed, 77);
+    assert.ok(Object.keys(mounted.geo.nodes).length > 0);
+    assert.ok(mounted.lore.crowns.length > 0);
+  });
+
+  it('keeps the artifact identity: the file digest and version, untouched', () => {
+    const parsed = JSON.parse(fixture);
+    const mounted = mountCartridge(fixture);
+    // The migration is session-local; the artifact on disk is the identity.
+    // mounted.digest is the file's own c (computed over the 8-key v1 data),
+    // and mounted.v reports what is on disk, not what the migration produced.
+    assert.equal(mounted.digest, parsed.c);
+    assert.equal(mounted.v, 1);
+  });
+
+  it('gives a migrated v1 and a fresh v2 bake the same shape', async () => {
+    const mounted = mountCartridge(fixture);
+    const fresh = await bakeCartridge(77);
+    const keysOf = (o) => Object.keys(o).sort();
+    // Same data keys (the mount adds digest/v/beginSession on top).
+    assert.deepEqual(
+      keysOf(fresh.data),
+      keysOf(mounted).filter((k) => !['digest', 'v', 'beginSession'].includes(k)).sort());
+    // Same world: the v1 bake and the v2 bake of the same seed agree on the
+    // deterministic layers, so the migration is pure plumbing, not content.
+    assert.deepEqual(mounted.geo, fresh.data.geo);
+    assert.deepEqual(mounted.lore, fresh.data.lore);
+    assert.deepEqual(mounted.slices, fresh.data.slices);
   });
 });
 
