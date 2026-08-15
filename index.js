@@ -83,7 +83,12 @@ export {
 // Entity-id ⇄ cell addressing over a cartridge: what does the world say about
 // entity X, and how to write an answer back. The fold base for session replay
 // and the future revision format both speak this addressing.
-export { cellsOf, entityIdsOf, projectCells } from './src/worldgen/revision.js';
+export {
+  cellsOf, entityIdsOf, projectCells,
+  REVISION_VERSION, REVISION_MIGRATIONS, REVISION_CELLS,
+  makeRevision, mountRevision, applyRevision, applyRevisions,
+  resolvedDigest, classifyRevision, revisionConflicts,
+} from './src/worldgen/revision.js';
 // Fronts: the world's own pressure — wars and shaky crowns mint clocks, and a
 // filled clock changes the world through ledger patches replay can fold.
 export {
