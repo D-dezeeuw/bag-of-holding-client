@@ -42,6 +42,7 @@ describe('public entry point', () => {
       lore: ['mintLore', 'mintEras', 'mintCrownStub', 'CROWN_SCHEMA', 'LEGEND_SCHEMA'],
       hydration: ['hydrateNode', 'HYDRATION_TEMPLATES', 'ensureLineage', 'lineageContext', 'gazetteerOf', 'discoverAncestors'],
       cartridge: ['bakeCartridge', 'mountCartridge', 'catalogEntry', 'CARTRIDGE_VERSION'],
+      revision: ['cellsOf', 'entityIdsOf', 'projectCells'],
       dungeon: ['generateDungeon', 'DUNGEON_OVERLAYS'],
       layout: ['generateLayout', 'settlementLayout', 'cityLayout', 'bindSettlement', 'SETTLEMENT_SIZES'],
       narrative: ['currentBeat', 'makeAct', 'adjustReputation', 'makeClock'],
