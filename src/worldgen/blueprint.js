@@ -65,6 +65,14 @@ export const DEFAULT_TABLES = Object.freeze({
   },
 
   factionArchetypes: [
+    // Peer powers first: kingdoms and leagues that can hold territory and
+    // wage war on each other. Before these, the vocabulary was all cults and
+    // rebellions — "three peer realms at war", the most classic campaign
+    // premise there is, was literally unrollable.
+    { type: 'rival crown',     desc: 'a neighbouring monarchy pressing an old claim' },
+    { type: 'merchant concord',desc: 'a league of trading houses whose charters outrank borders' },
+    { type: 'levy compact',    desc: 'allied provinces sworn to mutual defence and shared harvests' },
+    { type: 'free league',     desc: 'independent towns and ports resisting every crown equally' },
     { type: 'crown',           desc: 'ruling monarchy or imperial authority' },
     { type: 'church',          desc: 'organized religion with political power' },
     { type: 'military',        desc: 'standing army or knightly order' },

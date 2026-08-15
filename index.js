@@ -93,7 +93,9 @@ export {
 } from './src/worldgen/schemas.js';
 export {
   mintEras, mintLegendStubs, mintCrownStub, mintLore,
+  mintFactionStubs, mintWarState, bindCrownsToFactions,
   ERA_NAMES, LEGEND_TITLE_A, LEGEND_TITLE_B, CROWN_TITLES, LEGITIMACIES,
+  FACTION_NAME_A, FACTION_NAME_B, WAR_CAUSES, WAR_INTENSITIES,
 } from './src/worldgen/lore.js';
 
 // ── Dungeon ────────────────────────────────────────────────────────────────────
@@ -117,6 +119,7 @@ export {
 } from './src/narrative/acts.js';
 export {
   REP_MIN, REP_MAX, THRESHOLDS, clampRep, reputationOf, adjustReputation,
+  adjustReputationWithRipples,
   standing, standingFor, priceModifier, adjustPrice, isHostile,
 } from './src/narrative/factions.js';
 

@@ -35,9 +35,12 @@ describe('cellsOf', () => {
   it('treats the world as one entity: slice plus the scalar cells', () => {
     const cells = cellsOf(data, 'world');
     assert.equal(cells.slice, data.slices.world);
-    // Null is a value, not an absence — both scalars are present-and-null.
+    // Both scalars are present; settingId is present-and-null on a default
+    // bake (null is a value, not an absence), warState carries the wars the
+    // genesis factions minted (or null in a world at peace).
     assert.ok('settingId' in cells && cells.settingId === null);
-    assert.ok('warState' in cells && cells.warState === null);
+    assert.ok('warState' in cells);
+    assert.equal(cells.warState, data.warState);
   });
 
   it('yields {} for unknown ids and junk input', () => {
@@ -90,7 +93,8 @@ describe('projectCells', () => {
   it('adds where the id is new: array cells append, map cells insert', () => {
     const faction = { id: 'faction-ashen', name: 'The Ashen Host' };
     const withFaction = projectCells(data, 'faction-ashen', { faction });
-    assert.deepEqual(withFaction.factions, [faction]);
+    assert.equal(withFaction.factions.length, data.factions.length + 1);
+    assert.equal(withFaction.factions.at(-1), faction);
 
     const legend = { id: `${continentId}.legend-9`, title: 'The Salt Tithe', sites: [] };
     const withLegend = projectCells(data, legend.id, { legend });
@@ -114,7 +118,7 @@ describe('projectCells', () => {
     const atWar = projectCells(data, 'world', { warState: { between: ['a', 'b'] } });
     assert.deepEqual(atWar.warState, { between: ['a', 'b'] });
     const notWorld = projectCells(data, provinceId, { warState: { between: ['a', 'b'] } });
-    assert.equal(notWorld.warState, null, 'a non-world id cannot reach the world scalars');
+    assert.equal(notWorld.warState, data.warState, 'a non-world id cannot reach the world scalars');
   });
 
   it('is a no-op on junk input', () => {

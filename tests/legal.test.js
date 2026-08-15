@@ -23,7 +23,8 @@ import { DEFAULT_TABLES, buildBlueprint, deriveBlueprint, blueprintContext,
          worldSeedConstraints, beatsHints, factionsHints, regionHints, settlementHints,
          THEME_CLIMATES, BAND_SETTLEMENTS, THREAT_EXPRESSIONS } from '../src/worldgen/blueprint.js';
 import { DUNGEON_OVERLAYS } from '../src/dungeon/generate.js';
-import { mintLore, ERA_NAMES, LEGEND_TITLE_A, LEGEND_TITLE_B, CROWN_TITLES, LEGITIMACIES } from '../src/worldgen/lore.js';
+import { mintLore, ERA_NAMES, LEGEND_TITLE_A, LEGEND_TITLE_B, CROWN_TITLES, LEGITIMACIES,
+  FACTION_NAME_A, FACTION_NAME_B, WAR_CAUSES, WAR_INTENSITIES } from '../src/worldgen/lore.js';
 import { mintWorldSkeleton } from '../src/worldgen/skeleton.js';
 import { TRAVEL_MODES, LANDFALL_HOOKS } from '../src/travel/modes.js';
 import { MENACE_TIERS, menaceHints, MENACE_SIGNPOSTS } from '../src/worldgen/blueprint.js';
@@ -126,7 +127,8 @@ describe('content hygiene', () => {
 
   it('ships no product-identity names in the lore tables or minted lore', () => {
     const bad = [
-      ...offendersIn({ ERA_NAMES, LEGEND_TITLE_A, LEGEND_TITLE_B, CROWN_TITLES, LEGITIMACIES }, 'lore tables'),
+      ...offendersIn({ ERA_NAMES, LEGEND_TITLE_A, LEGEND_TITLE_B, CROWN_TITLES, LEGITIMACIES,
+        FACTION_NAME_A, FACTION_NAME_B, WAR_CAUSES, WAR_INTENSITIES }, 'lore tables'),
     ];
     for (let seed = 1; seed <= 20; seed++) {
       bad.push(...offendersIn(mintLore(mintWorldSkeleton(seed), seed), `mintLore seed ${seed}`));

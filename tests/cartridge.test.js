@@ -111,11 +111,14 @@ describe('mountCartridge', () => {
     assert.deepEqual(errors, ['future-version']);
   });
 
-  it('bakes the v2 collections empty, in a stable key order', async () => {
+  it('bakes the v2 collections in a stable key order, powers included', async () => {
     const cart = await bakeCartridge(42);
-    assert.deepEqual(cart.data.factions, []);
+    // Since Phase A the powers precede the player: factions are minted at
+    // genesis (with the guaranteed fault line, so a war usually exists);
+    // npcs and routes wait for their phases.
+    assert.ok(cart.data.factions.length >= 2, 'a world has powers');
+    assert.ok(cart.data.factions.every(f => /^faction-\d+$/.test(f.id) && f.stub === true));
     assert.deepEqual(cart.data.npcs, []);
-    assert.equal(cart.data.warState, null);
     assert.deepEqual(cart.data.routes, []);
     // The digest is computed over JSON.stringify(data), so key order is part
     // of the format: the four v2 keys come after the original eight, in this
@@ -160,7 +163,7 @@ describe('the v1 → v2 migration', () => {
     assert.equal(mounted.v, 1);
   });
 
-  it('gives a migrated v1 and a fresh v2 bake the same shape', async () => {
+  it('gives a migrated v1 and a fresh v2 bake the same SHAPE (content may evolve)', async () => {
     const mounted = mountCartridge(fixture);
     const fresh = await bakeCartridge(77);
     const keysOf = (o) => Object.keys(o).sort();
@@ -168,11 +171,23 @@ describe('the v1 → v2 migration', () => {
     assert.deepEqual(
       keysOf(fresh.data),
       keysOf(mounted).filter((k) => !['digest', 'v', 'beginSession'].includes(k)).sort());
-    // Same world: the v1 bake and the v2 bake of the same seed agree on the
-    // deterministic layers, so the migration is pure plumbing, not content.
+    // The migration is pure plumbing. What stays byte-equal across versions
+    // is what draws from unchanged seeded streams: the skeleton and the lore
+    // cores. Slices are compared by KEY SET only — Phase A grew the faction
+    // archetype table, which legitimately shifts every blueprint roll after
+    // it for the same seed. That is exactly why the design says the ARTIFACT,
+    // not the seed, is a world's identity: the old artifact keeps its old
+    // content forever; only fresh bakes get the new vocabulary.
     assert.deepEqual(mounted.geo, fresh.data.geo);
-    assert.deepEqual(mounted.lore, fresh.data.lore);
-    assert.deepEqual(mounted.slices, fresh.data.slices);
+    assert.deepEqual(Object.keys(mounted.slices).sort(), Object.keys(fresh.data.slices).sort());
+    assert.deepEqual(mounted.lore.eras, fresh.data.lore.eras);
+    assert.deepEqual(mounted.lore.legends, fresh.data.lore.legends);
+    assert.deepEqual(
+      mounted.lore.crowns,
+      fresh.data.lore.crowns.map(({ factionRelations, ...c }) => ({ ...c, factionRelations: [] })));
+    // The migrated v1 keeps empty collections; the fresh bake has powers.
+    assert.deepEqual(mounted.factions, []);
+    assert.ok(fresh.data.factions.length >= 2);
   });
 });
 

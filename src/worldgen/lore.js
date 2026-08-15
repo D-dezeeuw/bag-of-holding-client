@@ -39,6 +39,26 @@ export const LEGITIMACIES = Object.freeze([
   'settled', 'contested', 'usurped', 'failing', 'newly crowned',
 ]);
 
+export const FACTION_NAME_A = Object.freeze([
+  'Ashen', 'Saltglass', 'Fenreeve', 'Ironbound', 'Lantern', 'Tidemark',
+  'Briarwold', 'Palewater', 'Coppervein', 'Thornmark',
+]);
+export const FACTION_NAME_B = Object.freeze([
+  'Host', 'Concord', 'Compact', 'League', 'Court', 'Banner',
+  'Tithe', 'Circle', 'March', 'Charter',
+]);
+
+// What a war is ABOUT — one concrete grievance, so hydration and the acts
+// engine have a fact to bind to rather than "they hate each other".
+export const WAR_CAUSES = Object.freeze([
+  'a broken toll charter', 'a drowned border stone', 'a stolen harvest tithe',
+  'a disputed succession', 'a salt monopoly', 'a burned envoy',
+  'an unpaid weregild', 'a poisoned ford', 'a forged treaty seal',
+  'a bell taken as plunder',
+]);
+
+export const WAR_INTENSITIES = Object.freeze(['cold', 'raiding', 'open']);
+
 // ─── Minters ─────────────────────────────────────────────────────────────────
 
 // 3–5 named epochs, oldest first. Every legend, ruin, and landmark carries an
@@ -89,21 +109,123 @@ export function mintCrownStub(provinceId, seed, { culture = null } = {}) {
   };
 }
 
+// The powers that precede the player. Factions are WORLD-scoped entities
+// (ids `faction-N`) so the red thread can run through them across continents;
+// each is anchored to one continent (round-robin, so two continents guarantee
+// a cross-sea rivalry) and holds 1-2 of its provinces as territory.
+//
+// The relations pass is symmetric — both sides record an enmity or alliance —
+// and guarantees at least one enemy pair whenever two factions exist: a world
+// with no friction generates no stories, and every downstream engine (wars,
+// fronts, the acts arc) keys off that first fault line.
+export function mintFactionStubs(seed, { provincesByContinent, slots = null, count = null } = {}) {
+  const rng = mulberry32(((seed ?? 1) + 303) >>> 0);
+  const continents = Object.keys(provincesByContinent ?? {});
+  if (!continents.length) return [];
+  const n = count ?? (slots?.length || 3);
+
+  const factions = [];
+  for (let i = 0; i < n; i++) {
+    const home = continents[i % continents.length];
+    const mine = provincesByContinent[home] ?? [];
+    const territory = mine.length ? pickN(mine, Math.min(mine.length, randInt(1, 2, rng)), rng) : [];
+    factions.push({
+      id: `faction-${i}`,
+      name: `The ${pick(FACTION_NAME_A, rng)} ${pick(FACTION_NAME_B, rng)}`,
+      archetype: slots?.[i]?.type ?? null,
+      territory,
+      allies: [],
+      enemies: [],
+      stub: true,
+    });
+  }
+
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const roll = rng();
+      if (roll < 0.35) {
+        factions[i].enemies.push(factions[j].id);
+        factions[j].enemies.push(factions[i].id);
+      } else if (roll < 0.6) {
+        factions[i].allies.push(factions[j].id);
+        factions[j].allies.push(factions[i].id);
+      }
+    }
+  }
+  if (n >= 2 && !factions.some(f => f.enemies.length)) {
+    // The guaranteed fault line. Deterministic (first pair), and it displaces
+    // any accidental alliance between them — enemies and allies are disjoint.
+    factions[0].allies = factions[0].allies.filter(id => id !== factions[1].id);
+    factions[1].allies = factions[1].allies.filter(id => id !== factions[0].id);
+    factions[0].enemies.push(factions[1].id);
+    factions[1].enemies.push(factions[0].id);
+  }
+  return factions;
+}
+
+// One war per enemy pair: who, how hot, what it is about, and where it is
+// felt (the union of both territories — the front a travelling party crosses).
+// Null when the world happens to be at peace, which the caller stores as the
+// honest answer rather than an empty ceremony.
+export function mintWarState(seed, factions) {
+  const rng = mulberry32(((seed ?? 1) + 404) >>> 0);
+  const wars = [];
+  for (let i = 0; i < (factions?.length ?? 0); i++) {
+    for (let j = i + 1; j < factions.length; j++) {
+      if (!factions[i].enemies.includes(factions[j].id)) continue;
+      wars.push({
+        id: `war-${wars.length}`,
+        between: [factions[i].id, factions[j].id],
+        intensity: pick(WAR_INTENSITIES, rng),
+        cause: pick(WAR_CAUSES, rng),
+        front: [...new Set([...factions[i].territory, ...factions[j].territory])],
+      });
+    }
+  }
+  return wars.length ? { wars } : null;
+}
+
+// Seat the powers on the thrones. The faction holding a crown's province IS
+// its sovereign — a stored fact, not a vibe, which is what makes "the King of
+// Faction A" a target the acts engine can bind to. Additional holders of the
+// same province take a lesser stance; at most one sovereign per crown by
+// construction. Pure: returns new crown records, never mutates.
+export function bindCrownsToFactions(crowns, factions, seed) {
+  const rng = mulberry32(((seed ?? 1) + 505) >>> 0);
+  return crowns.map((crown) => {
+    const provinceId = crown.id.replace(/\.crown$/, '');
+    const holders = (factions ?? []).filter(f => f.territory.includes(provinceId));
+    if (!holders.length) return crown;
+    const relations = holders.map((f, i) => ({
+      factionId: f.id,
+      stance: i === 0 ? 'sovereign' : pick(['rival', 'puppet', 'defiant', 'ally'], rng),
+    }));
+    return { ...crown, factionRelations: relations };
+  });
+}
+
 // Walk a minted skeleton and populate the whole lore layer in one pass.
 // Pure: same skeleton + seed → same lore, which is what lets a cartridge
-// carry it and a replay reproduce it.
-export function mintLore({ geo, continents, provinces }, seed, { eraCount = null } = {}) {
+// carry it and a replay reproduce it. `factionSlots` (the world blueprint's
+// archetype roll) rides in so a host's setting tables re-skin the factions
+// the same way they re-skin everything else.
+export function mintLore({ geo, continents, provinces }, seed, { eraCount = null, factionSlots = null } = {}) {
   const eras = mintEras(seed, { count: eraCount });
   const legends = [];
-  const crowns = [];
+  let crowns = [];
+  const provincesByContinent = {};
   for (const cId of continents) {
     const cNode = geo.nodes[cId];
     const mine = provinces.filter(p => geo.nodes[p].parent === cId);
+    provincesByContinent[cId] = mine;
     const firstPort = mine.find(p => geo.nodes[p].port) ?? mine[0] ?? null;
     legends.push(...mintLegendStubs(cId, cNode.seed, { provinces: mine, firstPort, eras }));
     for (const pId of mine) {
       crowns.push(mintCrownStub(pId, geo.nodes[pId].seed, { culture: cNode.nameParts }));
     }
   }
-  return { eras, legends, crowns };
+  const factions = mintFactionStubs(seed, { provincesByContinent, slots: factionSlots });
+  const warState = mintWarState(seed, factions);
+  crowns = bindCrownsToFactions(crowns, factions, seed);
+  return { eras, legends, crowns, factions, warState };
 }

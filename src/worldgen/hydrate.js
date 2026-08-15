@@ -16,7 +16,7 @@ import { SYLLABLES } from './skeleton.js';
 import { makePatch } from '../ledger/patch.js';
 import {
   CONTINENT_OUTLINE_SCHEMA, PROVINCE_OUTLINE_SCHEMA, REGION_SCHEMA,
-  SETTLEMENT_SCHEMA, CROWN_SCHEMA, LEGEND_SCHEMA,
+  SETTLEMENT_SCHEMA, CROWN_SCHEMA, LEGEND_SCHEMA, FACTION_SCHEMA,
 } from './schemas.js';
 
 // ─── Template registry ───────────────────────────────────────────────────────
@@ -154,6 +154,24 @@ export const HYDRATION_TEMPLATES = Object.freeze({
       digest: `${stub.title} — a story with a place attached`,
     }),
   },
+  faction: {
+    full: { schema: FACTION_SCHEMA, tier: 'medium', retries: 1 },
+    consumes: ['tone', 'threatExpression'],
+    method: 'llm',
+    // Territory must be real provinces and relations must be real factions —
+    // both coerce rather than reject, because a faction whose prose is good
+    // but whose ids drifted is worth keeping.
+    post: ['territoryResolves', 'relationsResolve'],
+    fallback: (stub) => {
+      const { archetype, ...rest } = stripStub(stub);
+      return {
+        ...rest,
+        description: `${stub.name}${archetype ? `, a ${archetype}` : ''}, holding ${stub.territory.length || 'no'} province${stub.territory.length === 1 ? '' : 's'}.`,
+        values: 'what it holds, it keeps',
+        digest: `${stub.name} — ${archetype ?? 'a power with borders'}`,
+      };
+    },
+  },
 });
 
 const stripStub = ({ stub, ...rest }) => rest;
@@ -287,6 +305,33 @@ const POST_CHECKS = {
     }
     return out;
   },
+  // A hydrated faction's territory must be provinces the world actually has.
+  // Coerce by filtering: prose about a place that does not exist is dropped,
+  // the rest of the faction survives.
+  territoryResolves(result, ctx) {
+    const bad = (result.territory ?? []).filter(id => !ctx.geo?.nodes?.[id]);
+    if (!bad.length) return [];
+    return [{ check: 'territoryResolves', at: 'territory', value: bad.join(','),
+      coerce: (r) => ({ ...r, territory: r.territory.filter(id => ctx.geo?.nodes?.[id]) }) }];
+  },
+
+  // Allies and enemies must name real factions — the reputation ripples and
+  // the war state both walk these arrays, and a dangling id there is a war
+  // against nobody.
+  relationsResolve(result, ctx) {
+    const known = new Set((ctx.factions ?? []).map(f => f.id));
+    const out = [];
+    for (const field of ['allies', 'enemies']) {
+      // Bad: an unknown faction, or the faction naming itself.
+      const bad = (result[field] ?? []).filter(id => !known.has(id) || id === result.id);
+      if (bad.length) {
+        out.push({ check: 'relationsResolve', at: field, value: bad.join(','),
+          coerce: (r) => ({ ...r, [field]: r[field].filter(id => known.has(id) && id !== r.id) }) });
+      }
+    }
+    return out;
+  },
+
   factionsExist(result, ctx) {
     const known = new Set((ctx.factions ?? []).map(f => f.id));
     const out = [];
