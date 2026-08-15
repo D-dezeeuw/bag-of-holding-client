@@ -18,6 +18,7 @@ import {
   adjustReputationWithRipples, standingFor,
   planJourney, gazetteerOf, coerceBeatLocation,
   plantSetup, emptyThread,
+  mintWorldClocks, advanceWorld, whileYouWereGone, fold,
 } from '../index.js';
 
 // Hunt a seed whose genesis rolls the full premise: a faction with two
@@ -114,12 +115,46 @@ describe('the powers exist and the engine can hold them', () => {
   });
 });
 
-describe('what the engine still cannot hold (flips green phase by phase)', () => {
-  it('phase B: the war ADVANCES while the player travels (fronts mint clocks)', { todo: true }, () => {
-    // mintWarState gives the war a front; nothing yet mints a clock from it,
-    // so whileYouWereGone still has nothing to report after a crossing.
-  });
+describe('the war advances while the player travels (phase B)', () => {
+  it('the crossing takes long enough that a front moves, and the news is canon', () => {
+    // The world's own state mints its pressure: every war runs a clock.
+    const clocks = mintWorldClocks(data);
+    const warIds = data.warState.wars.map(w => `clock-${w.id}`);
+    for (const id of warIds) assert.ok(clocks.some(c => c.id === id), `${id} is running`);
 
+    // The hero sails B → A. Tick the world by the journey's own length,
+    // repeating crossings until some war clock fills — sooner or later a
+    // front MUST move; a world that can wait forever has no pressure.
+    const journey = planJourney(data.geo, B.territory[0], A.territory[0], { capabilities: { sea: true } });
+    let state = { data, clocks };
+    const allPatches = [];
+    let news = null;
+    for (let crossing = 0; crossing < 12 && !news; crossing++) {
+      const r = advanceWorld(state.data, state.clocks,
+        { turn: crossing + 1, amount: journey.totalDays, seed: cart.data.seed ?? 1 });
+      allPatches.push(...r.patches);
+      if (r.fired.some(c => warIds.includes(c.id))) news = r;
+      state = { data: r.data, clocks: r.clocks };
+    }
+    assert.ok(news, 'some war moved while the hero was at sea');
+
+    // The recap has something to say at last.
+    const gone = whileYouWereGone(news.fired, []);
+    assert.ok(gone.firedClocks.length >= 1, 'the road home carries news');
+
+    // And it is CANON, not a vibe: the emitted patches fold over the world
+    // cell to exactly the intensities the advanced world holds.
+    const folded = fold(cellsOf(data, 'world'), allPatches, 'world');
+    assert.deepEqual(folded.warState, state.data.warState,
+      'replaying the patches reproduces the advanced war, byte for byte');
+    const changed = state.data.warState.wars.some((w, i) =>
+      w.intensity !== data.warState.wars[i].intensity ||
+      (w.escalations ?? 0) !== (data.warState.wars[i].escalations ?? 0));
+    assert.ok(changed, 'the war is genuinely elsewhere from where it started');
+  });
+});
+
+describe('what the engine still cannot hold (flips green phase by phase)', () => {
   it('phase E′: a beat binds to a POWER — cast carries the crown/faction id', { todo: true }, () => {
     // BEAT_SCHEMA still has no cast field; directive() reads beat.cast, which
     // nothing produces. "Defeat the King" is not yet a checkable target.

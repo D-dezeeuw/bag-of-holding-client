@@ -44,6 +44,8 @@ describe('public entry point', () => {
       hydration: ['hydrateNode', 'HYDRATION_TEMPLATES', 'ensureLineage', 'lineageContext', 'gazetteerOf', 'discoverAncestors'],
       cartridge: ['bakeCartridge', 'mountCartridge', 'catalogEntry', 'CARTRIDGE_VERSION'],
       revision: ['cellsOf', 'entityIdsOf', 'projectCells'],
+      fronts: ['mintWorldClocks', 'warClockFired', 'successionFired', 'advanceWorld',
+        'WAR_CLOCK_SEGMENTS', 'SUCCESSION_SEGMENTS', 'SUCCESSION_TURNS'],
       dungeon: ['generateDungeon', 'DUNGEON_OVERLAYS'],
       layout: ['generateLayout', 'settlementLayout', 'cityLayout', 'bindSettlement', 'SETTLEMENT_SIZES'],
       narrative: ['currentBeat', 'makeAct', 'adjustReputation', 'adjustReputationWithRipples', 'makeClock'],
