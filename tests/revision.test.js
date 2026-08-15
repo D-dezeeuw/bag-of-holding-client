@@ -5,7 +5,13 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { bakeCartridge } from '../src/worldgen/cartridge.js';
-import { cellsOf, entityIdsOf, projectCells } from '../src/worldgen/revision.js';
+import { makePatch } from '../src/ledger/patch.js';
+import {
+  cellsOf, entityIdsOf, projectCells,
+  REVISION_VERSION, REVISION_CELLS,
+  makeRevision, mountRevision, applyRevision, applyRevisions,
+  resolvedDigest, classifyRevision, revisionConflicts,
+} from '../src/worldgen/revision.js';
 
 // One real keyless bake shared by every case: the addressing must work on
 // what bakeCartridge actually produces, not on a hand-made lookalike.
@@ -125,5 +131,158 @@ describe('projectCells', () => {
     assert.equal(projectCells(data, provinceId, null), data);
     assert.equal(projectCells(data, '', { node: {} }), data);
     assert.equal(projectCells(null, provinceId, { node: {} }), null);
+  });
+});
+
+// ─── The revision artifact ───────────────────────────────────────────────────
+
+describe('the revision format', () => {
+  const patch = (target, path, to, because = 'rev') =>
+    makePatch({ turn: 0, target, scope: 'world', kind: 'canon', path, to, because, source: 'revision' });
+
+  const r1 = () => makeRevision({
+    worldId: 'world-77', revision: 1,
+    base: { revision: 0, digest: cart.c },
+    ledger: [
+      patch(provinceId, 'node', { ...data.geo.nodes[provinceId], name: 'Saltmarch' }),
+      patch('world', 'warState', { wars: [{ id: 'war-x', between: ['faction-0', 'faction-1'], intensity: 'cold', cause: 'a test', front: [] }] }),
+    ],
+    notes: 'a new name on the south reach; the war stated',
+    now: '2026-08-15T00:00:00Z',
+  });
+
+  it('resolvedDigest(pristine data) IS the cartridge digest — revision 0 needs no special case', () => {
+    assert.equal(resolvedDigest(data), cart.c);
+  });
+
+  it('authoring validates the cell vocabulary and the base stacking', () => {
+    const rev = r1();
+    assert.equal(rev.v, REVISION_VERSION);
+    assert.equal(rev.data.base.digest, cart.c);
+    assert.throws(() => makeRevision({
+      worldId: 'world-77', revision: 1, base: { revision: 0, digest: cart.c },
+      ledger: [patch(provinceId, 'terrain.mood', 'wrong')],
+    }), new RegExp(`unknown cell 'terrain'.*${REVISION_CELLS.join(', ')}`), 'the refusal names the legal vocabulary');
+    assert.throws(() => makeRevision({
+      worldId: 'world-77', revision: 2, base: { revision: 0, digest: cart.c }, ledger: [patch('world', 'settingId', 'x')],
+    }), /must stack on base 1/);
+    assert.throws(() => makeRevision({
+      worldId: 'world-77', revision: 1, base: { revision: 0, digest: cart.c }, ledger: [],
+    }), /non-empty/);
+  });
+
+  it('mounts its own envelope and refuses structural junk', () => {
+    const rev = r1();
+    const mounted = mountRevision(JSON.stringify(rev));
+    assert.deepEqual(mounted, rev.data);
+    const errs = [];
+    assert.equal(mountRevision(JSON.stringify({ v: REVISION_VERSION, data: { worldId: 'w' } }),
+      { onError: (c, d) => errs.push([c, d]) }), null);
+    assert.equal(errs[0][0], 'revision-invalid');
+    assert.equal(mountRevision(JSON.stringify({ ...rev, v: REVISION_VERSION + 1 }),
+      { onError: (c) => errs.push([c]) }), null, 'a future revision format is refused');
+  });
+
+  it('applies: the edit lands, the add appends, arrays re-derive, and twice is byte-identical', () => {
+    const newProvince = {
+      id: `${continentId}.province-99`, name: 'Fenholt', kind: 'province',
+      parent: continentId, seed: 9, detail: 0, stub: true,
+    };
+    const ledger = [
+      ...r1().data.ledger,
+      patch(newProvince.id, 'node', newProvince),
+    ];
+    const out = applyRevision(data, ledger);
+    assert.equal(out.geo.nodes[provinceId].name, 'Saltmarch', 'the edit landed');
+    assert.equal(out.warState.wars[0].id, 'war-x', 'the world scalar landed');
+    assert.ok(out.provinces.includes(newProvince.id), 'the index re-derived the added province');
+    assert.equal(data.geo.nodes[provinceId].name === 'Saltmarch', false, 'pristine data untouched');
+    assert.equal(JSON.stringify(applyRevision(data, ledger)), JSON.stringify(out), 'resolution is deterministic');
+  });
+
+  it('re-deriving the index on an untouched world is byte-identical to the bake', () => {
+    // applyRevision re-derives continents/provinces from geo after every
+    // apply; that is only safe if derivation reproduces the baked arrays
+    // exactly. An empty-target ledger exercises just the reindex.
+    const out = applyRevision(data, [patch('world', 'settingId', null)]);
+    assert.deepEqual(out.continents, data.continents);
+    assert.deepEqual(out.provinces, data.provinces);
+  });
+
+  it('resolves a chain, and a wrong base digest refuses that revision AND everything above', () => {
+    const rev1 = r1();
+    const afterR1 = applyRevision(data, rev1.data.ledger);
+    const rev2 = makeRevision({
+      worldId: 'world-77', revision: 2,
+      base: { revision: 1, digest: resolvedDigest(afterR1) },
+      ledger: [patch(crownId, 'crown.legitimacy', 'usurped')],
+    });
+
+    const good = applyRevisions(data, [rev1.data, rev2.data]);
+    assert.deepEqual(good.applied, [1, 2]);
+    assert.equal(good.data.lore.crowns[0].legitimacy, 'usurped');
+    assert.equal(resolvedDigest(good.data), resolvedDigest(applyRevision(afterR1, rev2.data.ledger)),
+      'chain resolution === stepwise resolution');
+
+    // Corrupt r1's authored-against digest: r1 refuses, r2 falls with it.
+    const errs = [];
+    const broken = applyRevisions(data,
+      [{ ...rev1.data, base: { revision: 0, digest: 'deadbeef' } }, rev2.data],
+      { onError: (c, d) => errs.push([c, d]) });
+    assert.deepEqual(broken.applied, []);
+    assert.equal(resolvedDigest(broken.data), cart.c, 'the base keeps serving');
+    assert.equal(errs[0][0], 'revision-base-mismatch');
+
+    // A numbering gap truncates the same way.
+    const gapErrs = [];
+    const gapped = applyRevisions(data, [rev2.data], { onError: (c) => gapErrs.push(c) });
+    assert.deepEqual(gapped.applied, []);
+    assert.deepEqual(gapErrs, ['revision-gap']);
+  });
+
+  it('classifies per resolution: the same patch is an edit at r0 and an add nowhere', () => {
+    const newLegend = { id: `${continentId}.legend-9`, title: 'The Salt Tithe', sites: [provinceId] };
+    const ledger = [
+      patch(provinceId, 'node.name', 'Saltmarch'),          // node exists → edit
+      patch(newLegend.id, 'legend', newLegend),             // legend does not → add
+    ];
+    const { adds, edits } = classifyRevision(data, ledger);
+    assert.deepEqual(edits.map(p => p.target), [provinceId]);
+    assert.deepEqual(adds.map(p => p.target), [newLegend.id]);
+    // Once the add has been applied, the SAME patch classifies as an edit —
+    // the split is per-resolution, which is what makes upgrades honest.
+    const later = applyRevision(data, [patch(newLegend.id, 'legend', newLegend)]);
+    assert.equal(classifyRevision(later, ledger).edits.length, 2);
+  });
+
+  it('conflicts: containment both ways, paths prefix-aware, adds never blocked', () => {
+    const edits = [
+      patch(provinceId, 'node.name', 'Saltmarch'),
+      patch(`${provinceId}.region-0`, 'node.mood', 'uneasy'),
+      patch(crownId, 'crown.legitimacy', 'usurped'),
+    ];
+    // The whole province was observed: it, its region AND its crown block —
+    // the crown id lives under the province id, and a table that has seen
+    // the province has met its throne.
+    const wholeProvince = revisionConflicts(edits, { [provinceId]: '*' });
+    assert.deepEqual(wholeProvince.map(c => c.target).sort(),
+      [provinceId, `${provinceId}.crown`, `${provinceId}.region-0`].sort());
+    assert.ok(wholeProvince.every(c => c.blockedBy === provinceId));
+    // A DIFFERENT province's observation blocks none of these.
+    assert.deepEqual(revisionConflicts(edits, { [data.provinces[1]]: '*' }), []);
+
+    // Observing a REGION blocks the edit that replaces its whole province —
+    // containment runs upward too.
+    const regionSeen = revisionConflicts([edits[0]], { [`${provinceId}.region-0`]: ['node'] });
+    assert.equal(regionSeen.length, 1);
+
+    // Path-scoped observation: only conflicting paths block — and the
+    // observed paths guard everything under the observed entity, so
+    // 'node.mood' spares the province rename but blocks the region's mood.
+    const pathScoped = revisionConflicts(edits, { [provinceId]: ['node.name'] });
+    assert.deepEqual(pathScoped.map(c => c.target), [provinceId]);
+    assert.deepEqual(revisionConflicts(edits, { [provinceId]: ['node.mood'] }).map(c => c.target),
+      [`${provinceId}.region-0`], 'a different path spares the province itself');
+    assert.deepEqual(revisionConflicts([], { [provinceId]: '*' }), [], 'no edits, no conflicts');
   });
 });
