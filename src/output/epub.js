@@ -1,13 +1,22 @@
-// src/output/epub.js — zero-dep EPUB 3 builder.  ⚠️ BROWSER-ONLY.
+// src/output/epub.js — zero-dep EPUB 3 builder.
 //
-//   buildEpub({ title, subtitle, lang, chapters, tone, tagline, brand }) → Promise<Blob>
+//   buildEpub({ title, subtitle, lang, chapters, tone, tagline, brand,
+//               cover, uuid, modified }) → Promise<Blob>
 //
 // Each chapter: { heading, text, imageDataUri? }. Images are pulled out of their
-// data-URIs and embedded as PNG/JPEG; the cover is rendered on an OffscreenCanvas.
-// Relies on OffscreenCanvas / atob / crypto.randomUUID / Blob, so it runs in a
-// browser, not under `node --test` (the store-only ZIP core in ./zip.js is the
-// node-testable half). `brand` (default '') prefixes the metadata title and is
-// drawn (upper-cased) on the cover — pass '' for an unbranded book.
+// data-URIs and embedded as PNG/JPEG. `brand` (default '') prefixes the metadata
+// title and is drawn (upper-cased) on the cover — pass '' for an unbranded book.
+//
+// The cover decides WHERE this runs:
+//   cover omitted     → rendered on an OffscreenCanvas — ⚠️ BROWSER-ONLY.
+//   cover: Uint8Array → caller-supplied PNG bytes, no canvas — runs anywhere.
+//   cover: false      → coverless book (no cover page, no cover image, chapter
+//                       playOrder starts at 1) — runs anywhere, incl. node.
+//
+// `uuid` (a urn:uuid string or bare uuid) and `modified` (an ISO timestamp)
+// default to crypto.randomUUID() / new Date(); pass both to make the output
+// byte-deterministic — the property a server export needs to promise "same
+// world, same book" and the property the headless test asserts.
 
 import { buildZip } from './zip.js';
 
@@ -132,8 +141,12 @@ p { margin: 0.6em 0; text-align: justify; }
 .ornament { text-align: center; color: #c8a878; font-size: 1.5em; margin: 1.5em 0; }
 `;
 
-export async function buildEpub({ title, subtitle, lang, chapters, tone, tagline, brand = '' }) {
-  const uuid = 'urn:uuid:' + crypto.randomUUID();
+export async function buildEpub({ title, subtitle, lang, chapters, tone, tagline, brand = '', cover = undefined, uuid = null, modified = null }) {
+  const uid = uuid
+    ? (String(uuid).startsWith('urn:uuid:') ? String(uuid) : `urn:uuid:${uuid}`)
+    : 'urn:uuid:' + crypto.randomUUID();
+  const stamp = (modified ? new Date(modified) : new Date()).toISOString().replace(/\.\d+Z$/, 'Z');
+  const hasCover = cover !== false;
   const titled = brand ? `${_escXml(brand)}: ${_escXml(title)}` : _escXml(title);
   const entries = [];
 
@@ -144,8 +157,12 @@ export async function buildEpub({ title, subtitle, lang, chapters, tone, tagline
   )});
   entries.push({ path: 'OEBPS/style.css', data: _str(STYLE_CSS) });
 
-  const coverPng = await _renderCover(title, subtitle, tone, tagline, brand);
-  entries.push({ path: 'OEBPS/images/cover.png', data: coverPng });
+  if (hasCover) {
+    const coverPng = cover instanceof Uint8Array
+      ? cover
+      : await _renderCover(title, subtitle, tone, tagline, brand);
+    entries.push({ path: 'OEBPS/images/cover.png', data: coverPng });
+  }
 
   const imageFiles = [];
   for (let i = 0; i < chapters.length; i++) {
@@ -157,9 +174,11 @@ export async function buildEpub({ title, subtitle, lang, chapters, tone, tagline
     entries.push({ path: `OEBPS/images/${filename}`, data: img.bytes });
   }
 
-  entries.push({ path: 'OEBPS/cover.xhtml', data: _str(
-    `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${lang}"><head><title>Cover</title><link rel="stylesheet" href="style.css"/></head><body><div class="cover-img"><img src="images/cover.png" alt="Cover"/></div></body></html>`
-  )});
+  if (hasCover) {
+    entries.push({ path: 'OEBPS/cover.xhtml', data: _str(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${lang}"><head><title>Cover</title><link rel="stylesheet" href="style.css"/></head><body><div class="cover-img"><img src="images/cover.png" alt="Cover"/></div></body></html>`
+    )});
+  }
 
   for (let i = 0; i < chapters.length; i++) {
     const ch = chapters[i];
@@ -174,11 +193,13 @@ export async function buildEpub({ title, subtitle, lang, chapters, tone, tagline
 
   const manifestItems = [
     `<item id="style" href="style.css" media-type="text/css"/>`,
-    `<item id="cover-image" href="images/cover.png" media-type="image/png" properties="cover-image"/>`,
-    `<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>`,
+    ...(hasCover ? [
+      `<item id="cover-image" href="images/cover.png" media-type="image/png" properties="cover-image"/>`,
+      `<item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>`,
+    ] : []),
     `<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>`,
   ];
-  const spineItems = [`<itemref idref="cover"/>`];
+  const spineItems = hasCover ? [`<itemref idref="cover"/>`] : [];
   for (let i = 0; i < chapters.length; i++) {
     const num = String(i + 1).padStart(2, '0');
     manifestItems.push(`<item id="ch-${num}" href="chapter-${num}.xhtml" media-type="application/xhtml+xml"/>`);
@@ -189,15 +210,18 @@ export async function buildEpub({ title, subtitle, lang, chapters, tone, tagline
   }
 
   entries.push({ path: 'OEBPS/content.opf', data: _str(
-    `<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="uid" version="3.0">\n<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="uid">${uuid}</dc:identifier><dc:title>${titled}</dc:title><dc:language>${lang}</dc:language><meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d+Z$/, 'Z')}</meta></metadata>\n<manifest>\n${manifestItems.join('\n')}\n</manifest>\n<spine toc="ncx">\n${spineItems.join('\n')}\n</spine>\n</package>`
+    `<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="uid" version="3.0">\n<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="uid">${uid}</dc:identifier><dc:title>${titled}</dc:title><dc:language>${lang}</dc:language><meta property="dcterms:modified">${stamp}</meta></metadata>\n<manifest>\n${manifestItems.join('\n')}\n</manifest>\n<spine toc="ncx">\n${spineItems.join('\n')}\n</spine>\n</package>`
   )});
 
+  const playBase = hasCover ? 2 : 1;
   const navPoints = chapters.map((ch, i) => {
     const num = String(i + 1).padStart(2, '0');
-    return `<navPoint id="np-${num}" playOrder="${i + 2}"><navLabel><text>${_escXml(ch.heading)}</text></navLabel><content src="chapter-${num}.xhtml"/></navPoint>`;
+    return `<navPoint id="np-${num}" playOrder="${i + playBase}"><navLabel><text>${_escXml(ch.heading)}</text></navLabel><content src="chapter-${num}.xhtml"/></navPoint>`;
   });
+  const coverNav = hasCover
+    ? `<navPoint id="np-cover" playOrder="1"><navLabel><text>Cover</text></navLabel><content src="cover.xhtml"/></navPoint>\n` : '';
   entries.push({ path: 'OEBPS/toc.ncx', data: _str(
-    `<?xml version="1.0" encoding="UTF-8"?>\n<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><head><meta name="dtb:uid" content="${uuid}"/></head><docTitle><text>${titled}</text></docTitle><navMap><navPoint id="np-cover" playOrder="1"><navLabel><text>Cover</text></navLabel><content src="cover.xhtml"/></navPoint>\n${navPoints.join('\n')}\n</navMap></ncx>`
+    `<?xml version="1.0" encoding="UTF-8"?>\n<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><head><meta name="dtb:uid" content="${uid}"/></head><docTitle><text>${titled}</text></docTitle><navMap>${coverNav}${navPoints.join('\n')}\n</navMap></ncx>`
   )});
 
   return buildZip(entries, { mimeType: 'application/epub+zip' });
