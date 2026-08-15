@@ -84,6 +84,12 @@ export {
 // entity X, and how to write an answer back. The fold base for session replay
 // and the future revision format both speak this addressing.
 export { cellsOf, entityIdsOf, projectCells } from './src/worldgen/revision.js';
+// Fronts: the world's own pressure — wars and shaky crowns mint clocks, and a
+// filled clock changes the world through ledger patches replay can fold.
+export {
+  mintWorldClocks, warClockFired, successionFired, advanceWorld,
+  WAR_CLOCK_SEGMENTS, SUCCESSION_SEGMENTS, SUCCESSION_TURNS,
+} from './src/worldgen/fronts.js';
 export { mintWorldSkeleton, adoptFlatWorld, CLIMATE_BANDS, SYLLABLES, STUB_HOOKS } from './src/worldgen/skeleton.js';
 export {
   WORLD_SEED_SCHEMA, REGION_SCHEMA, NPC_SCHEMA, FACTION_SCHEMA,
