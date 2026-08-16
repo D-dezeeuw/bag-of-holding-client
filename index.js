@@ -177,3 +177,11 @@ export {
   PROMPT_KINDS, narrationPrompt, narrationCacheKey,
   NARRATION_SCHEMA, parseNarration, toAnthropic, toOpenAI, toLocal,
 } from './src/llm/prompts.js';
+
+// ── Initiative tracker reference UI (the kernel roadmap's 4.1.0 row) ────────
+// A pure view model + a web component registered only where custom
+// elements exist (defineInitiativeTracker is a clean no-op in node).
+// Reference example, not part of the engine — the boundary holds.
+export {
+  initiativeViewModel, advanceTurn, defineInitiativeTracker,
+} from './src/ui/initiative.js';
