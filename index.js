@@ -167,3 +167,13 @@ export {
   openCold, coldPut, coldGet, coldKeys, coldAll, coldDelete,
   appendSegment, readSegments, segmentKey, splitSave,
 } from './src/persistence/idb.js';
+
+// ── AI prompt scaffolding (the kernel roadmap's 4.0.0 row, landed host-side) ──
+// Structured narration templates over the engine's deterministic output:
+// provider-agnostic prompts with cache keys, the parseable reply schema,
+// and adapters for the three major API shapes. The kernel never imports
+// this — its boundary stays intact; this repo IS the host toolkit.
+export {
+  PROMPT_KINDS, narrationPrompt, narrationCacheKey,
+  NARRATION_SCHEMA, parseNarration, toAnthropic, toOpenAI, toLocal,
+} from './src/llm/prompts.js';
