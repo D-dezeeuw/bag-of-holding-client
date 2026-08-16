@@ -185,3 +185,9 @@ export {
 export {
   initiativeViewModel, advanceTurn, defineInitiativeTracker,
 } from './src/ui/initiative.js';
+
+// ── Grant redemption (closing the keyless-deployment gap) ───────────────────
+// On a keyless MCP server the image gate hands the HOST a render grant;
+// this is the redemption counter — expiry-checked, provider-injected,
+// with the refund verdict the server's refund path needs.
+export { grantIsLive, redeemImageGrant } from './src/llm/redeem.js';
