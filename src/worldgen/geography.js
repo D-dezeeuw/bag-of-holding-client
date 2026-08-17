@@ -87,7 +87,10 @@ export function neighbours(geo, id) {
     .map(e => {
       const otherId = e.from === id ? e.to : e.from;
       const dir     = e.from === id ? e.direction : (OPPOSITE[e.direction] ?? e.direction);
-      return { ...geo.nodes[otherId], direction: dir, days: e.days, kind: e.kind, discovered: e.discovered };
+      // `edgeFrom`/`edgeTo` expose the raw edge endpoints — a traversability
+      // predicate that needs BOTH sides (the waygate discovery gate) cannot
+      // recover the near node from the neighbour view alone.
+      return { ...geo.nodes[otherId], direction: dir, days: e.days, kind: e.kind, discovered: e.discovered, edgeFrom: e.from, edgeTo: e.to };
     })
     .filter(n => n.id);
 }
@@ -165,12 +168,16 @@ export function knownMap(geo) {
 // when unreachable. Travel time is what makes distance mean something.
 //
 // `traversable` filters edges by capability (doc 18 §9): a walking party
-// cannot take a 'sea' lane without a ship. Default: everything, preserving
-// every existing caller. It deliberately ignores `discovered` — the route
-// exists whether the player has heard of it or not; knowing about it is the
-// gazetteer's business, not the pathfinder's.
+// cannot take a 'sea' lane without a ship. Default: every ROAD and SEA
+// edge, preserving every existing caller — 'gate' edges (dormant waygates)
+// are excluded by default so a sleeping arch never silently collapses the
+// world's distances; the planner opens them explicitly when the party has
+// earned the crossing. It deliberately ignores `discovered` otherwise —
+// the route exists whether the player has heard of it or not; knowing
+// about it is the gazetteer's business, not the pathfinder's.
 export function routeBetween(geo, from, to, { traversable = null } = {}) {
   if (from === to) return { path: [from], days: 0 };
+  const pass = traversable ?? ((e) => e.kind !== 'gate');
   const dist = { [from]: 0 };
   const prev = {};
   const queue = new Set(Object.keys(geo.nodes));
@@ -181,7 +188,7 @@ export function routeBetween(geo, from, to, { traversable = null } = {}) {
     queue.delete(best);
     if (best === to) break;
     for (const n of neighbours(geo, best)) {
-      if (traversable && !traversable(n)) continue;
+      if (!pass(n)) continue;
       const alt = dist[best] + (n.days ?? 1);
       if (dist[n.id] == null || alt < dist[n.id]) { dist[n.id] = alt; prev[n.id] = best; }
     }

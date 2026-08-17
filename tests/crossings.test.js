@@ -29,9 +29,11 @@ describe('routeBetween with a traversability predicate', () => {
   it('a walking party cannot cross a sea lane; a shipped one can', () => {
     const sk = mintWorldSkeleton(1234);
     const { home, far } = crossContinentPair(sk);
-    const walk = routeBetween(sk.geo, home, far, { traversable: (e) => e.kind !== 'sea' });
+    // An explicit predicate owns the WHOLE decision (the default's
+    // dormant-gate exclusion included) — a walking party is road-only.
+    const walk = routeBetween(sk.geo, home, far, { traversable: (e) => e.kind === 'border' });
     assert.equal(walk, null);
-    const sail = routeBetween(sk.geo, home, far);
+    const sail = routeBetween(sk.geo, home, far, { traversable: (e) => e.kind !== 'gate' });
     assert.ok(sail && sail.days > 0);
   });
 });
@@ -213,5 +215,66 @@ describe('long single-edge crossings (the splitLeg fix)', () => {
       assert.ok(leg.segments <= 8, 'no leg outruns the segment budget');
       assert.ok(leg.days >= 1);
     }
+  });
+});
+
+describe('waygates — discovery-gated fast travel', () => {
+  // The teleportation-circle pattern as data: every continent's middle
+  // province carries a dormant waygate; gate edges are 0 days but the
+  // planner refuses them until the party holds the `gate` capability AND
+  // has discovered BOTH endpoints — "you must have seen the circle".
+  const gated = () => {
+    const sk = mintWorldSkeleton(1234);
+    const gates = sk.provinces.filter(p => sk.geo.nodes[p].waygate);
+    return { sk, gates };
+  };
+
+  it('every continent minted a dormant waygate, pairwise connected', () => {
+    for (let seed = 1; seed <= 50; seed++) {
+      const sk = mintWorldSkeleton(seed);
+      const gates = sk.provinces.filter(p => sk.geo.nodes[p].waygate);
+      assert.equal(gates.length, sk.continents.length, `seed ${seed}`);
+      const gateEdges = sk.geo.edges.filter(e => e.kind === 'gate');
+      assert.equal(gateEdges.length, (gates.length * (gates.length - 1)) / 2);
+      assert.ok(gateEdges.every(e => e.days === 0));
+    }
+  });
+
+  it('dormant gates never shorten default routes', () => {
+    const { sk, gates } = gated();
+    if (gates.length < 2) return;
+    const walked = routeBetween(sk.geo, gates[0], gates[1]);
+    assert.ok(walked === null || walked.days > 0, 'no silent 0-day teleport');
+  });
+
+  it('capability without discovery stays closed; both together open a 0-day crossing with a toll', () => {
+    const { sk, gates } = gated();
+    assert.ok(gates.length >= 2, 'seed 1234 has two continents');
+    const [a, b] = gates;
+
+    const attuned = planJourney(sk.geo, a, b, { capabilities: { gate: true } });
+    const attunedGate = attuned?.legs.some(l => l.mode === 'gate') ?? false;
+    assert.equal(attunedGate, false, 'undiscovered endpoints stay closed');
+
+    let geo = sk.geo;
+    geo = { ...geo, nodes: { ...geo.nodes,
+      [a]: { ...geo.nodes[a], discovered: true },
+      [b]: { ...geo.nodes[b], discovered: true } } };
+    const open = planJourney(geo, a, b, { capabilities: { gate: true } });
+    assert.ok(open, 'the gate route plans');
+    assert.equal(open.mode, 'gate');
+    const gateLeg = open.legs.find(l => l.mode === 'gate');
+    assert.equal(gateLeg.days, 0);
+    assert.deepEqual(gateLeg.costHint, { tollGold: 25 });
+    assert.ok(open.totalDays === 0, 'the crossing itself is instant');
+    assert.ok(open.totalSegments >= 1, 'but still at least one scene');
+  });
+
+  it('sea legs carry the passage cost hint', () => {
+    const sk = mintWorldSkeleton(1234);
+    const { home, far } = crossContinentPair(sk);
+    const plan = planJourney(sk.geo, home, far, { capabilities: { sea: true } });
+    const seaLeg = plan.legs.find(l => l.mode === 'sea');
+    assert.deepEqual(seaLeg.costHint, { passageGoldPerDay: 1 });
   });
 });

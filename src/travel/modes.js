@@ -11,12 +11,16 @@ export const TRAVEL_MODES = Object.freeze({
     encounterChance: 0.4,
     discoveryChance: 0.35,
     discoveryTypes: ['loot', 'wanderer', 'shrine', 'clue'],
+    costHint: null,
   },
   sea: {
     daysPerSegment: 2,
     encounterChance: 0.25,
     discoveryChance: 0.3,
     discoveryTypes: ['storm', 'drifting wreck', 'strange sail', 'becalmed water', 'sea shrine'],
+    // The D&D voyage contract: passage is priced. The planner stamps this
+    // on each leg; the settlement economy (or the DM) turns it into gold.
+    costHint: { passageGoldPerDay: 1 },
   },
   air: {
     daysPerSegment: 3,
@@ -24,6 +28,16 @@ export const TRAVEL_MODES = Object.freeze({
     encounterChance: 0.15,
     discoveryChance: 0.2,
     discoveryTypes: ['thermal', 'distant smoke', 'high roost', 'impossible cloud', 'lights below'],
+    costHint: { charterGoldPerDay: 5 },
+  },
+  gate: {
+    // A waygate crossing: instant in days, still one scene in segments —
+    // stepping through an ancient arch is never "nothing happens".
+    daysPerSegment: 1,
+    encounterChance: 0,
+    discoveryChance: 0.15,
+    discoveryTypes: ['humming sigils', 'ancient toll-plate', 'afterimage of another sky', 'cold crossing-light'],
+    costHint: { tollGold: 25 },
   },
 });
 
