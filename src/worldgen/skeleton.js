@@ -75,13 +75,34 @@ export function mintWorldSkeleton(seed, { continents = null, provincesPer = null
   const continentIds = [];
   const provinceIds = [];
 
+  // Name dedup, stream-preserving: the primary draws below are byte-for-byte
+  // what they always were (so collision-free worlds bake identically); only
+  // when a draw REPEATS an earlier name does `unique` walk the ordered combo
+  // grid for the first unused pair — no extra rng draws — and fall back to a
+  // numeral once a pool is exhausted. Before this, 47% of default worlds
+  // shipped a duplicate province name.
+  const takenNames = new Set();
+  const unique = (name, as, bs) => {
+    if (!takenNames.has(name)) { takenNames.add(name); return name; }
+    for (const a of as) {
+      for (const b of bs) {
+        const alt = `${a}${b}`;
+        if (!takenNames.has(alt)) { takenNames.add(alt); return alt; }
+      }
+    }
+    for (let i = 2; ; i++) {
+      const alt = `${name} ${'I'.repeat(i)}`;
+      if (!takenNames.has(alt)) { takenNames.add(alt); return alt; }
+    }
+  };
+
   const nContinents = continents ?? randInt(2, 4, rng);
   for (let c = 0; c < nContinents; c++) {
     const cSeed = randInt(1, 2 ** 30, rng);
     const cRng  = mulberry32(cSeed);
     const cId   = `continent-${c}`;
     geo = addNode(geo, {
-      id: cId, name: `${pick(cA, cRng)}${pick(cB, cRng)}`, kind: 'continent',
+      id: cId, name: unique(`${pick(cA, cRng)}${pick(cB, cRng)}`, cA, cB), kind: 'continent',
       seed: cSeed, hook: pick(hookPool, cRng), stub: true, detail: 0, parent: null,
     });
     continentIds.push(cId);
@@ -102,7 +123,7 @@ export function mintWorldSkeleton(seed, { continents = null, provincesPer = null
       const pRng  = mulberry32(pSeed);
       const pId   = `${cId}.province-${p}`;
       geo = addNode(geo, {
-        id: pId, name: `${pick(prefixes, pRng)}${pick(suffixes, pRng)}`, kind: 'province',
+        id: pId, name: unique(`${pick(prefixes, pRng)}${pick(suffixes, pRng)}`, prefixes, suffixes), kind: 'province',
         seed: pSeed, hook: pick(hookPool, pRng), stub: true, detail: 0, parent: cId,
       });
       // The province owns its climate band — recorded on the node so regions
@@ -121,17 +142,56 @@ export function mintWorldSkeleton(seed, { continents = null, provincesPer = null
   }
 
   // Ports and sea lanes: the first (and on big continents the last) province
-  // of each continent is a port; consecutive continents' ports are connected.
+  // of each continent is a port, and EVERY flagged port joins the lane
+  // graph — the sea is a ring, not a chain, so any two continents route in
+  // both directions and no harbor is decoration. (The old pass flagged the
+  // far port but never laned it: every big continent shipped an orphan
+  // harbor.) Consecutive ports of the SAME continent get a short coastal
+  // run; cross-continent lanes stay the 4-8 day crossings.
   const ports = [];
   for (const cId of continentIds) {
     const mine = provinceIds.filter(p => geo.nodes[p].parent === cId);
     if (!mine.length) continue;
     geo = patchNode(geo, mine[0], { port: true });
     ports.push(mine[0]);
-    if (mine.length > 2) geo = patchNode(geo, mine[mine.length - 1], { port: true });
+    if (mine.length > 2) {
+      const far = mine[mine.length - 1];
+      geo = patchNode(geo, far, { port: true });
+      ports.push(far);
+    }
   }
-  for (let i = 1; i < ports.length; i++) {
-    geo = connect(geo, ports[i - 1], ports[i], { direction: 'east', days: randInt(4, 8, rng), kind: 'sea' });
+  const lane = (a, b) => {
+    const coastal = geo.nodes[a].parent === geo.nodes[b].parent;
+    geo = connect(geo, a, b, {
+      direction: 'east',
+      days: coastal ? randInt(2, 4, rng) : randInt(4, 8, rng),
+      kind: 'sea',
+    });
+  };
+  for (let i = 1; i < ports.length; i++) lane(ports[i - 1], ports[i]);
+  if (ports.length > 2) lane(ports[ports.length - 1], ports[0]);
+
+  // Waygates: one dormant ancient gate per continent, the D&D
+  // teleportation-circle pattern as data. The gate province is picked
+  // DETERMINISTICALLY (the continent's middle province — no rng draws, so
+  // pre-waygate worlds keep their exact streams) and every gate pair is
+  // connected with a 0-day 'gate' edge. Dormant means the edges exist but
+  // the planner refuses them until the party has BOTH discovered the
+  // endpoints and earned the capability — distance is a cost early and a
+  // key late. Settings re-skin the prose at hydration (a relic-arch, a
+  // pressure-rail terminus, a mist-door); the skeleton only places them.
+  const waygates = [];
+  for (const cId of continentIds) {
+    const mine = provinceIds.filter(p => geo.nodes[p].parent === cId);
+    if (!mine.length) continue;
+    const gate = mine[Math.floor(mine.length / 2)];
+    geo = patchNode(geo, gate, { waygate: true });
+    waygates.push(gate);
+  }
+  for (let i = 0; i < waygates.length; i++) {
+    for (let j = i + 1; j < waygates.length; j++) {
+      geo = connect(geo, waygates[i], waygates[j], { direction: 'east', days: 0, kind: 'gate' });
+    }
   }
 
   return { geo, continents: continentIds, provinces: provinceIds };

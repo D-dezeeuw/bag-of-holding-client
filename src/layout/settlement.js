@@ -15,11 +15,15 @@
 import { mulberry32, pick, shuffle, randInt } from '../worldgen/rng.js';
 import { generateLayout } from './engine.js';
 
-// The scale ladder. City is special-cased into districts below.
+// The scale ladder. A `city` here is one DENSE settlement graph — the
+// district-tree alternative lives in cityLayout below; both are legitimate
+// city shapes (a market city is one big street plan, a capital is quarters).
 export const SETTLEMENT_SIZES = Object.freeze({
-  hamlet:  { spineMin: 2, spineMax: 3, branchMin: 0, branchMax: 1 },
-  village: { spineMin: 3, spineMax: 4, branchMin: 1, branchMax: 3 },
-  town:    { spineMin: 4, spineMax: 6, branchMin: 3, branchMax: 5 },
+  hamlet:     { spineMin: 2, spineMax: 3, branchMin: 0, branchMax: 1 },
+  village:    { spineMin: 3, spineMax: 4, branchMin: 1, branchMax: 3 },
+  town:       { spineMin: 4, spineMax: 6, branchMin: 3, branchMax: 5 },
+  city:       { spineMin: 8, spineMax: 12, branchMin: 6, branchMax: 10 },
+  metropolis: { spineMin: 12, spineMax: 16, branchMin: 10, branchMax: 14 },
 });
 
 // Which workplace roles bind to which building types. NPC roles come from
@@ -38,10 +42,16 @@ export const ROLE_BUILDINGS = Object.freeze({
 // Lay out one settlement: streets as a graph, buildings placed onto plots.
 // Returns { plots, streets, entrance, square, kind } where plots[i] carries
 // { id, pos, exits, role: 'gate'|'square'|'plot', building|null }.
-export function settlementLayout(seed, { kind = 'village', buildings = [], rng = null } = {}) {
+export function settlementLayout(seed, { kind = 'village', buildings = [], rng = null, size = null } = {}) {
   const r = rng ?? mulberry32(((typeof seed === 'number' ? seed : 0) + 606) >>> 0);
-  const size = SETTLEMENT_SIZES[kind] ?? SETTLEMENT_SIZES.village;
-  const core = generateLayout(seed, { rng: r, ...size });
+  // An unknown kind used to degrade to a village SILENTLY — 'city' and every
+  // typo shipped five plots and called it a day. Name the ladder instead;
+  // a host with its own scale in mind passes `size` overrides on top.
+  const row = SETTLEMENT_SIZES[kind];
+  if (!row) {
+    throw new Error(`settlementLayout: unknown kind ${JSON.stringify(kind)}. Kinds: ${Object.keys(SETTLEMENT_SIZES).join(', ')} (or pass size overrides).`);
+  }
+  const core = generateLayout(seed, { rng: r, ...row, ...(size ?? {}) });
 
   const plots = core.positions.map((pos, i) => ({
     id: `plot-${i}`,
@@ -72,7 +82,13 @@ export function cityLayout(seed, { districts = null, rng = null } = {}) {
   const r = rng ?? mulberry32(((typeof seed === 'number' ? seed : 0) + 707) >>> 0);
   const n = districts ?? randInt(3, 5, r);
   const QUARTER = ['market', 'harbor', 'temple', 'garrison', 'old town', 'artisan', 'garden', 'shambles'];
-  const names = shuffle(QUARTER, r).slice(0, n);
+  // Past eight districts the quarter names cycle with a numeral ("market II")
+  // instead of indexing past the shuffle — which was a TypeError at n ≥ 9.
+  const deck = shuffle(QUARTER, r);
+  const names = Array.from({ length: n }, (_, i) => {
+    const cycle = Math.floor(i / deck.length);
+    return cycle === 0 ? deck[i % deck.length] : `${deck[i % deck.length]} ${'I'.repeat(cycle + 1)}`;
+  });
   const out = names.map((quarter, i) => ({
     id: `district-${i}`,
     quarter,

@@ -178,3 +178,35 @@ describe('the vault treasure passes its fields through (2026-08-09 audit)', () =
     assert.ok(treasure.description, 'generic treasures carry their desc too');
   });
 });
+
+describe('overlay pools degrade, never empty (Bestiary I ids)', () => {
+  // The five once-missing ids (fungal-zombie, stone-sentinel,
+  // myconid-sovereign, young-drake, lesser-demon) ship in the kernel's
+  // Bestiary I. A host that mounts it resolves every pool in full; a
+  // bare-SRD host must still get a vault boss — the highest surviving CR.
+  const FULL = {
+    'violet-fungus': 0.25, 'giant-wolf-spider': 0.25, 'fungal-zombie': 0.5,
+    'giant-spider': 1, 'myconid-sovereign': 2,
+  };
+  const provider = (known) => (id) => {
+    if (!(id in known)) throw new Error('unknown ' + id);
+    return { hp: 10, maxHp: 10, ac: 12, toHit: 3, damageDie: '1d6', damageBonus: 1, damageType: 'bludgeoning', cr: known[id], tier: 'minion' };
+  };
+  const fungal = (seed, known) => generateDungeon(seed, {
+    ...opts(seed), statBlockFor: provider(known),
+    blueprint: { dungeonTheme: 'fungal depths', godDomains: [] },
+  });
+
+  it('a Bestiary-I host gets the intended vault boss', () => {
+    const d = fungal(21, FULL);
+    assert.equal(d.npcs.boss.creatureId, 'myconid-sovereign');
+  });
+
+  it('a bare-SRD host promotes the highest surviving CR to boss', () => {
+    const bare = Object.fromEntries(Object.entries(FULL)
+      .filter(([id]) => !['fungal-zombie', 'myconid-sovereign'].includes(id)));
+    const d = fungal(22, bare);
+    assert.ok(d.npcs.boss, 'the vault is never bossless');
+    assert.equal(d.npcs.boss.creatureId, 'giant-spider', 'highest surviving CR stands in');
+  });
+});

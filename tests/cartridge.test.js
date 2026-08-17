@@ -179,7 +179,20 @@ describe('the v1 → v2 migration', () => {
     // it for the same seed. That is exactly why the design says the ARTIFACT,
     // not the seed, is a world's identity: the old artifact keeps its old
     // content forever; only fresh bakes get the new vocabulary.
-    assert.deepEqual(mounted.geo, fresh.data.geo);
+    // Nodes are compared STRUCTURALLY (ids, kinds, parents, climate, ports,
+    // seeds); names and the outline digests that embed them may evolve —
+    // the name-dedup pass renames a fixture-era duplicate on fresh bakes.
+    // EDGES are compared by land only — the harbor-network fix re-laned the
+    // sea (ring, not chain). Same artifact-is-identity rule as the slices
+    // note below: the old artifact keeps its old content forever.
+    const structural = (nodes) => Object.fromEntries(Object.entries(nodes).map(
+      ([id, { name, digest, hook, nameParts, waygate, ...rest }]) => [id, rest]));
+    assert.deepEqual(structural(mounted.geo.nodes), structural(fresh.data.geo.nodes));
+    assert.deepEqual(
+      mounted.geo.edges.filter((e) => e.kind === 'border'),
+      fresh.data.geo.edges.filter((e) => e.kind === 'border'));
+    assert.ok(fresh.data.geo.edges.some((e) => e.kind === 'sea'), 'fresh bake is laned');
+    assert.ok(fresh.data.geo.edges.some((e) => e.kind === 'gate'), 'fresh bake carries dormant waygates');
     assert.deepEqual(Object.keys(mounted.slices).sort(), Object.keys(fresh.data.slices).sort());
     assert.deepEqual(mounted.lore.eras, fresh.data.lore.eras);
     assert.deepEqual(mounted.lore.legends, fresh.data.lore.legends);

@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { mintWorldSkeleton, adoptFlatWorld, CLIMATE_BANDS } from '../src/worldgen/skeleton.js';
 import {
   addNode, emptyGeography, childrenOf, ancestorsOf, promoteNode, expandFrom,
-  markVisited, knownMap, neighbours,
+  markVisited, knownMap, neighbours, routeBetween,
 } from '../src/worldgen/geography.js';
 
 describe('mintWorldSkeleton', () => {
@@ -41,15 +41,31 @@ describe('mintWorldSkeleton', () => {
     }
   });
 
-  it('connects the sea: every continent has a port, consecutive ports have a lane', () => {
-    const { geo, continents, provinces } = mintWorldSkeleton(555);
-    for (const cId of continents) {
-      assert.ok(provinces.some(p => geo.nodes[p].parent === cId && geo.nodes[p].port),
-        `${cId} has no port — unreachable by sea`);
+  it('connects the sea: every continent has a port, every port has a lane, the sea is a ring', () => {
+    // 200 seeds: no orphan harbors (the old pass flagged big continents'
+    // far port but never laned it), and every continent pair routes by sea.
+    for (let seed = 1; seed <= 200; seed++) {
+      const { geo, continents, provinces } = mintWorldSkeleton(seed);
+      const ports = provinces.filter(p => geo.nodes[p].port);
+      for (const cId of continents) {
+        assert.ok(ports.some(p => geo.nodes[p].parent === cId),
+          `${cId} has no port — unreachable by sea (seed ${seed})`);
+      }
+      const seaEdges = geo.edges.filter(e => e.kind === 'sea');
+      assert.ok(seaEdges.every(e => geo.nodes[e.from].port && geo.nodes[e.to].port));
+      if (ports.length > 1) {
+        for (const p of ports) {
+          assert.ok(seaEdges.some(e => e.from === p || e.to === p),
+            `${p} is an orphan harbor (seed ${seed})`);
+        }
+      }
+      // Any two continents' first ports route over sea + land.
+      const first = continents.map(cId => ports.find(p => geo.nodes[p].parent === cId));
+      for (let i = 1; i < first.length; i++) {
+        assert.ok(routeBetween(geo, first[0], first[i]),
+          `${first[0]} cannot reach ${first[i]} (seed ${seed})`);
+      }
     }
-    const seaEdges = geo.edges.filter(e => e.kind === 'sea');
-    assert.equal(seaEdges.length, continents.length - 1);
-    assert.ok(seaEdges.every(e => geo.nodes[e.from].port && geo.nodes[e.to].port));
   });
 });
 
