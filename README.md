@@ -162,6 +162,12 @@ const dungeon = generateDungeon(1234, {
 // → { currentRoom, exitRoomId, rooms: {…}, npcs: {…} }  — grid, lock-and-key, vault boss
 ```
 
+The themed enemy pools in `DUNGEON_OVERLAYS` resolve against the kernel's
+bestiary: mount `createEngine({ extraMonsters: BESTIARY_I })` (kernel ≥ 2.7.0)
+and every theme's full pool — vault boss included — is available. Ids your
+`statBlockFor` can't resolve are filtered and the highest surviving CR stands
+in as boss, so a bare-SRD engine degrades gracefully instead of failing.
+
 ### 4 · Run overworld travel
 
 ```js
