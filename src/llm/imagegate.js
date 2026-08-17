@@ -188,11 +188,21 @@ export function imageGateStatus(gate, now) {
  *   • allowed → the gate has one more spent and `grant` carries the prompt,
  *     an id, and its expiry.
  *
- * The grant id is derived from the counters rather than randomness, keeping the
- * whole module deterministic — the same reason the engine seeds its dice.
- * `prevRenderAt` rides along so a failed render can be refunded exactly.
+ * The default grant id is derived from the counters rather than randomness,
+ * keeping the whole module deterministic — the same reason the engine seeds
+ * its dice. `prevRenderAt` rides along so a failed render can be refunded
+ * exactly.
+ *
+ * That determinism also makes the id *guessable*, which is fine while the
+ * gate is per-player and the grant never leaves the machine that minted it.
+ * It stops being fine the moment a server mints grants for many tenants: a
+ * predictable id is a forgeable one. Pass `mintId` to supply unguessable ids
+ * (a server does; `crypto.randomUUID` is the obvious choice) without giving
+ * up determinism for everyone who does not need it.
+ *
+ * @param {{ prompt?: string, mintId?: (ctx: { renders: number, now: number }) => string }} [opts]
  */
-export function spendImageRender(gate, now, { prompt = '' } = {}) {
+export function spendImageRender(gate, now, { prompt = '', mintId } = {}) {
   const g = rollImageWindow(gate, now);
   const verdict = canRenderImage(g, now);
   if (!verdict.ok) return { ...verdict, gate: g, grant: null };
@@ -202,7 +212,9 @@ export function spendImageRender(gate, now, { prompt = '' } = {}) {
     remaining: Math.max(0, next.budget - next.spent),
     gate: next,
     grant: {
-      id: `g-${next.renders}-${now}`,
+      id: typeof mintId === 'function'
+        ? String(mintId({ renders: next.renders, now }))
+        : `g-${next.renders}-${now}`,
       prompt,
       issuedAt: now,
       expiresAt: now + GRANT_TTL_MS,
