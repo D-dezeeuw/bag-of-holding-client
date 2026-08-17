@@ -184,6 +184,7 @@ export {
 // Reference example, not part of the engine — the boundary holds.
 export {
   initiativeViewModel, advanceTurn, defineInitiativeTracker,
+  rollEncounterInitiative,
 } from './src/ui/initiative.js';
 
 // ── Grant redemption (closing the keyless-deployment gap) ───────────────────

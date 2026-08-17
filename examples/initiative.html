@@ -1,0 +1,72 @@
+<!doctype html>
+<!--
+  Initiative tracker — the reference demo the 4.1.0 row's word
+  "reference" promised. Serve the repo root (npx http-server) and open
+  /examples/initiative.html.
+
+  The demo is self-contained: it rolls with a small seeded d20 so the
+  page opens with zero setup. In a real host, replace `roll` with the
+  ENGINE-BOUND initiative roll so every d20 lands in the roll log:
+
+    import { createEngine, Dice } from '@zeeuw/bag-of-holding';
+    const engine = createEngine({ rng: Dice.seededRng(20) });
+    rollEncounterInitiative(participants, {
+      roll: (p) => engine.Combat.rollInitiative(p),
+    });
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bag-of-holding — initiative tracker demo</title>
+<style>
+  body { background: #1b1b22; color: #e8e4da; font-family: Georgia, serif;
+    max-width: 34rem; margin: 3rem auto; padding: 0 1rem; }
+  h1 { font-variant: small-caps; letter-spacing: .04em; }
+  #log { margin-top: 1rem; font-size: .85rem; color: #9a947f; white-space: pre-line; }
+</style>
+</head>
+<body>
+<h1>Initiative tracker</h1>
+<boh-initiative-tracker></boh-initiative-tracker>
+<div id="log"></div>
+
+<script type="module">
+  import {
+    defineInitiativeTracker, rollEncounterInitiative,
+  } from '../src/ui/initiative.js';
+
+  // Self-contained seeded d20 (mulberry32) so the demo needs no kernel
+  // install; see the header comment for the real engine-bound wiring.
+  let s = 20 >>> 0;
+  const rng = () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const mod = (score) => Math.floor((score - 10) / 2);
+  const roll = (p) => 1 + Math.floor(rng() * 20) + mod(p.dexterity ?? 10);
+
+  const participants = [
+    { id: 'vex', name: 'Vex', hp: 21, hpMax: 24, dexterity: 16, side: 'party' },
+    { id: 'brann', name: 'Brann', hp: 30, hpMax: 30, dexterity: 10, side: 'party' },
+    { id: 'wolf-1', name: 'Wolf 1', hp: 11, hpMax: 11, dexterity: 15, side: 'foe' },
+    { id: 'wolf-2', name: 'Wolf 2', hp: 0, hpMax: 11, dexterity: 15, side: 'foe',
+      conditions: ['prone'] },
+  ];
+
+  defineInitiativeTracker();
+  const tracker = document.querySelector('boh-initiative-tracker');
+  tracker.setState(rollEncounterInitiative(participants, { roll }));
+
+  const log = document.getElementById('log');
+  tracker.addEventListener('advance-turn', (e) => {
+    log.textContent = `round ${e.detail.round}, active: ${e.detail.active}\n` + log.textContent;
+  });
+  tracker.addEventListener('select-combatant', (e) => {
+    log.textContent = `selected: ${e.detail.id}\n` + log.textContent;
+  });
+</script>
+</body>
+</html>

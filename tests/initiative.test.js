@@ -62,3 +62,25 @@ test('element registration is a clean no-op without a DOM', () => {
   assert.equal(globalThis.customElements, undefined, 'node has no custom elements');
   assert.equal(defineInitiativeTracker(), null, 'no-op, no throw');
 });
+
+test('rollEncounterInitiative adapts real kernel participant shapes', async () => {
+  const { rollEncounterInitiative } = await import('../src/ui/initiative.js');
+  // The exact shape Adventures.encounterParticipants emits.
+  const participants = [
+    { id: 'banshee-1', name: 'Banshee', hp: 58, hpMax: 58, ac: 12, dexterity: 14, side: 'foe' },
+    { id: 'skeleton-1', name: 'Skeleton', hp: 13, hpMax: 13, ac: 13, dexterity: 14, side: 'foe' },
+  ];
+  // Injected roll — in a host this is the engine-bound
+  // Combat.rollInitiative, so the d20s land in the roll log.
+  const rolls = [17, 9];
+  const state = rollEncounterInitiative(participants, { roll: () => rolls.shift() });
+  assert.equal(state.round, 1);
+  assert.equal(state.turnIndex, 0);
+  assert.deepEqual(state.participants.map((p) => p.initiative), [17, 9]);
+  // Original fields survive the adaptation — the tracker's view model
+  // consumes this state directly.
+  assert.equal(state.participants[0].hpMax, 58);
+  assert.equal(initiativeViewModel(state).active, 'banshee-1');
+  // The roll is REQUIRED — silent d20-less initiative would be a lie.
+  assert.throws(() => rollEncounterInitiative(participants), /injected roll function is required/);
+});
