@@ -79,15 +79,28 @@ export function planJourney(geo, fromId, toId, {
 function splitLeg(leg, mode, maxSegmentsPerLeg) {
   const segments = segmentsFor(leg.days, mode);
   if (segments <= maxSegmentsPerLeg) return [{ ...leg, segments }];
-  // Split at path waypoints (port stops on a sea chain, towns on a road):
-  // near-equal day halves, recursively, so no single leg outruns its budget.
-  const midIndex = Math.max(1, Math.floor(leg.path.length / 2));
-  const mid = leg.path[midIndex];
-  const half = Math.ceil(leg.days / 2);
-  return [
-    ...splitLeg({ from: leg.from, to: mid, mode: leg.mode, days: half, path: leg.path.slice(0, midIndex + 1) }, mode, maxSegmentsPerLeg),
-    ...splitLeg({ from: mid, to: leg.to, mode: leg.mode, days: leg.days - half, path: leg.path.slice(midIndex) }, mode, maxSegmentsPerLeg),
-  ];
+  if (leg.path.length > 2) {
+    // Split at path waypoints (port stops on a sea chain, towns on a road):
+    // near-equal day halves, recursively, so no single leg outruns its budget.
+    const midIndex = Math.max(1, Math.floor(leg.path.length / 2));
+    const mid = leg.path[midIndex];
+    const half = Math.ceil(leg.days / 2);
+    return [
+      ...splitLeg({ from: leg.from, to: mid, mode: leg.mode, days: half, path: leg.path.slice(0, midIndex + 1) }, mode, maxSegmentsPerLeg),
+      ...splitLeg({ from: mid, to: leg.to, mode: leg.mode, days: leg.days - half, path: leg.path.slice(midIndex) }, mode, maxSegmentsPerLeg),
+    ];
+  }
+  // A single edge longer than the budget has no waypoint to cut at — an
+  // ocean crossing is one edge however many days it takes. Split by DAYS
+  // instead: every chunk keeps the real endpoints (used to recurse into
+  // path[1] of a one-node path and emit legs with `from: undefined`).
+  const daysCap = Math.max(1, maxSegmentsPerLeg * (mode.daysPerSegment ?? 1));
+  const chunks = [];
+  for (let remaining = leg.days; remaining > 0; remaining -= daysCap) {
+    const days = Math.min(daysCap, remaining);
+    chunks.push({ ...leg, days, segments: segmentsFor(days, mode) });
+  }
+  return chunks;
 }
 
 function summarize(legs, mode) {
