@@ -42,6 +42,18 @@ export {
   enableImages, disableImages, canRenderImage, imageGateStatus,
   spendImageRender, refundImageRender, isGrantExpired, composeImagePrompt,
 } from './src/llm/imagegate.js';
+// Whether a *relayed* text turn may be paid for — the same pure-math split, one
+// layer over: a hosted deployment holds the provider key and this says how much
+// a tenant token may spend against it. Applied by the server; the browser reads
+// the snapshot to show what is left.
+export {
+  RELAY_TIERS, DEFAULT_RELAY_TIER, relayTierPolicy,
+  emptyRelayBudget, normalizeRelayBudget, rollRelayWindow,
+  canRelay, chargeRelay, relayBudgetStatus,
+} from './src/llm/relaygate.js';
+// Pointing a config at that relay instead of at the provider: the tenant half
+// of "paste a key or paste a token".
+export { RELAY_MARKER, RELAY_PROBE_TIMEOUT_MS, relayBaseUrl, tenantConfig, probeRelay } from './src/llm/tenant.js';
 export { synthesizeSpeech, transcribeAudio, pcmToWav, bytesToBase64, TTS_FALLBACKS, PCM_MODELS } from './src/llm/audio.js';
 
 export { makeClock, isFull, advance, tickAll, clockMood, pressingClocks } from './src/narrative/clocks.js';
