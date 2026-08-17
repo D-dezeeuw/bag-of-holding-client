@@ -121,18 +121,34 @@ export function mintWorldSkeleton(seed, { continents = null, provincesPer = null
   }
 
   // Ports and sea lanes: the first (and on big continents the last) province
-  // of each continent is a port; consecutive continents' ports are connected.
+  // of each continent is a port, and EVERY flagged port joins the lane
+  // graph — the sea is a ring, not a chain, so any two continents route in
+  // both directions and no harbor is decoration. (The old pass flagged the
+  // far port but never laned it: every big continent shipped an orphan
+  // harbor.) Consecutive ports of the SAME continent get a short coastal
+  // run; cross-continent lanes stay the 4-8 day crossings.
   const ports = [];
   for (const cId of continentIds) {
     const mine = provinceIds.filter(p => geo.nodes[p].parent === cId);
     if (!mine.length) continue;
     geo = patchNode(geo, mine[0], { port: true });
     ports.push(mine[0]);
-    if (mine.length > 2) geo = patchNode(geo, mine[mine.length - 1], { port: true });
+    if (mine.length > 2) {
+      const far = mine[mine.length - 1];
+      geo = patchNode(geo, far, { port: true });
+      ports.push(far);
+    }
   }
-  for (let i = 1; i < ports.length; i++) {
-    geo = connect(geo, ports[i - 1], ports[i], { direction: 'east', days: randInt(4, 8, rng), kind: 'sea' });
-  }
+  const lane = (a, b) => {
+    const coastal = geo.nodes[a].parent === geo.nodes[b].parent;
+    geo = connect(geo, a, b, {
+      direction: 'east',
+      days: coastal ? randInt(2, 4, rng) : randInt(4, 8, rng),
+      kind: 'sea',
+    });
+  };
+  for (let i = 1; i < ports.length; i++) lane(ports[i - 1], ports[i]);
+  if (ports.length > 2) lane(ports[ports.length - 1], ports[0]);
 
   return { geo, continents: continentIds, provinces: provinceIds };
 }

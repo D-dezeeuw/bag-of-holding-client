@@ -179,7 +179,14 @@ describe('the v1 → v2 migration', () => {
     // it for the same seed. That is exactly why the design says the ARTIFACT,
     // not the seed, is a world's identity: the old artifact keeps its old
     // content forever; only fresh bakes get the new vocabulary.
-    assert.deepEqual(mounted.geo, fresh.data.geo);
+    // Nodes stay byte-equal; EDGES are compared by land only — the harbor-
+    // network fix legitimately re-laned the sea for fresh bakes (ring, not
+    // chain), same artifact-is-identity rule as the slices note below.
+    assert.deepEqual(mounted.geo.nodes, fresh.data.geo.nodes);
+    assert.deepEqual(
+      mounted.geo.edges.filter((e) => e.kind !== 'sea'),
+      fresh.data.geo.edges.filter((e) => e.kind !== 'sea'));
+    assert.ok(fresh.data.geo.edges.some((e) => e.kind === 'sea'), 'fresh bake is laned');
     assert.deepEqual(Object.keys(mounted.slices).sort(), Object.keys(fresh.data.slices).sort());
     assert.deepEqual(mounted.lore.eras, fresh.data.lore.eras);
     assert.deepEqual(mounted.lore.legends, fresh.data.lore.legends);

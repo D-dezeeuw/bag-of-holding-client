@@ -187,3 +187,31 @@ describe('whileYouWereGone', () => {
     assert.deepEqual(recap.superseded, [{ target: 'r1', turn: 5 }]);
   });
 });
+
+describe('long single-edge crossings (the splitLeg fix)', () => {
+  // A 40-day ocean lane is ONE edge — there is no waypoint to cut at, so
+  // the planner must split by days. It used to recurse into path[1] of a
+  // one-node path and emit legs with `from: undefined` and empty paths.
+  const oceanGeo = () => {
+    let geo = { nodes: {}, edges: [] };
+    geo = { nodes: {
+      a: { id: 'a', name: 'Homeport', kind: 'province', port: true, discovered: true },
+      b: { id: 'b', name: 'Farshore', kind: 'province', port: true, discovered: true },
+    }, edges: [{ from: 'a', to: 'b', direction: 'east', days: 40, kind: 'sea' }] };
+    return geo;
+  };
+
+  it('splits a 40-day lane into day-chunks with real endpoints', () => {
+    const plan = planJourney(oceanGeo(), 'a', 'b', { capabilities: { sea: true } });
+    assert.ok(plan, 'the crossing plans');
+    assert.equal(plan.totalDays, 40);
+    assert.ok(plan.legs.length >= 3, 'a 40-day lane cannot be one leg');
+    for (const leg of plan.legs) {
+      assert.equal(leg.from, 'a');
+      assert.equal(leg.to, 'b');
+      assert.ok(Array.isArray(leg.path) && leg.path.length === 2, 'each chunk keeps the real path');
+      assert.ok(leg.segments <= 8, 'no leg outruns the segment budget');
+      assert.ok(leg.days >= 1);
+    }
+  });
+});
