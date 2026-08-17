@@ -24,6 +24,30 @@ reusable.
   constrain the AI to produce, plus the JSON-schema contracts for every layer.
 - **Settlement economy** — pure trade, quest state, inventory, and per-NPC
   dialogue-memory helpers over the generated settlements + NPCs.
+- **World cartridges + revisions** — bake a generated world into an immutable,
+  digest-stamped artifact (`bakeCartridge`/`mountCartridge`), then evolve the
+  shelf with append-only revisions while running campaigns stay pinned.
+- **World memory (the ledger)** — base ⊕ append-only patches ⊕ folded views,
+  with provenance queries and observation tracking.
+- **Persistence + export** — versioned save envelopes with strict migrations, a
+  hot/cold IndexedDB split, store-only ZIP, and a headless-capable EPUB world
+  book (`buildEpub`).
+- **Fronts and clocks** — wars and shaky crowns mint threat clocks; firings are
+  canon patches, so the world moves on its own schedule.
+- **Journey planning** — `planJourney` routes across the region graph by real
+  travel modes, feeding the travel FSM actual geography.
+- **AI narration loop** — provider-agnostic prompt scaffolding
+  (`narrationPrompt`, parseable `NARRATION_SCHEMA`) plus the end-to-end
+  `narrate()` runner with LRU cache and a one-shot repair pass; the engine's
+  numbers stay final.
+- **Image pipeline + gate** — scene-image generation, TTS/STT, and the pure
+  `imagegate` budget (off by default, rolling window, cooldown) shared with the
+  MCP server, plus browser-side one-shot grant redemption (`redeemImageGrant`).
+- **Initiative tracker** — `<boh-initiative-tracker>`: a pure view model +
+  shadow-DOM element with baked styles, a kernel-shape adapter
+  (`rollEncounterInitiative`), and a reference demo page.
+- **Spatial layouts** — the shared grid engine behind dungeons *and* organic
+  settlement/city layouts.
 
 ```sh
 npm i @zeeuw/bag-of-holding-client
@@ -154,6 +178,7 @@ const dungeon = generateDungeon(1234, {
   size: { spineMin: 6, spineMax: 9, branchMin: 3, branchMax: 5 },   // optional: scale to the act
   content: {                                // injected locale dressing (the library ships none)
     roomPools, houseStyles, treasures, keys, loot,
+    domainTreasures, domainKeys,            // optional god-domain themed overrides
     dressingFor: (theme, roomType) => details[theme]?.[roomType],   // one small detail per room
     enemyName:  (id) => names[id],
     enemyIntro: (id, name, style) => `${name} lurks in the ${style}.`,
@@ -225,14 +250,32 @@ any genre.
 | `llm/transport` `llm/tiers` `llm/client` `llm/stream` | the structured/streaming LLM client (deadlines + AbortSignal end to end) |
 | `llm/catalog` `llm/image` `llm/audio` | live model-catalog healing, scene-image generation, TTS/STT — all under the same deadlines and cost accounting |
 | `llm/imagegate` | whether a scene image may be made at all: off by default, tiered budget per rolling window, cooldown, one-shot render grants — pure, so the browser host and the MCP server share one answer |
+| `llm/redeem` | browser-side redemption of the gate's one-shot render grants (keyless deployments) |
+| `llm/prompts` `llm/narrate` | the AI-narration scaffolding (per-kind templates, cache keys, `NARRATION_SCHEMA`) and the end-to-end `narrate()` loop with LRU cache + one repair pass |
 | `worldgen/rng` `worldgen/blueprint` `worldgen/pipeline` `worldgen/schemas` `worldgen/tones` `worldgen/geography` | seeded blueprint + resumable pipeline runner + layer schemas + the shared tone vocabulary + the region graph |
+| `worldgen/skeleton` `worldgen/lore` `worldgen/hydrate` | the seeded world skeleton (continents/climates/names), lore entities (eras, legends, crowns, factions, war state), and LLM hydration with post-conditions |
+| `worldgen/cartridge` `worldgen/revision` `worldgen/fronts` | immutable digest-stamped world cartridges, the append-only revision format, and the fronts/clocks layer |
 | `dungeon/generate` | the dungeon-graph algorithm (injected stat blocks + content) |
+| `layout/engine` `layout/settlement` | the shared spatial core (grids, spines, branches) and organic settlement/city layouts |
 | `narrative/beats` `narrative/acts` `narrative/clocks` `narrative/factions` | beat evaluator, act arc, faction/threat clocks, reputation math |
 | `ledger/patch` `ledger/ids` | world memory: base ⊕ append-only patches ⊕ folded views |
 | `persistence/envelope` `persistence/idb` | versioned saves (strict migrations, backup rotation) + a hot/cold split |
 | `settlement/economy` | trade / quests / inventory / dialogue-memory helpers |
-| `travel/fsm` | the overworld travel state machine |
-| `output/zip` `output/epub` | store-only ZIP + EPUB builders (browser-only canvas cover) |
+| `travel/fsm` `travel/modes` `travel/planner` | the overworld travel state machine, travel modes, and geography-aware journey planning |
+| `ui/initiative` | the initiative tracker: pure view model + `<boh-initiative-tracker>` shadow-DOM element |
+| `output/zip` `output/epub` | store-only ZIP + EPUB builders (canvas cover in the browser; headless with `cover: false` or a supplied PNG) |
+
+## Going deeper
+
+- [`docs/worldgen-lore-tree.md`](docs/worldgen-lore-tree.md) — the worldgen
+  design record (phases A–G, all shipped): skeleton → lore → hydration →
+  cartridges → crossings → layouts.
+- [`examples/world/`](examples/world) — the flagship end-to-end demo: bake a
+  world, hydrate it against a live model, export the EPUB world book.
+- [`examples/initiative.html`](examples/initiative.html) — the initiative
+  tracker reference page (self-contained, zero install).
+- [`scripts/bake-world.js`](scripts/bake-world.js) — bake a cartridge from the
+  command line (ships in the npm package).
 
 ## Develop
 

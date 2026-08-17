@@ -1,10 +1,20 @@
 # The lore tree — layered worldgen implementation plan
 
-**Status: plan, not shipped.** Continues the layered-world skeleton work
-(doc 17, textual LOD) that landed in `0.3.0`. Target: a world that can
-carry an 80-hour campaign — many climates, many dungeon flavours, rulers
-and legends that exist before the player needs them — while staying
-cheap, because everything below an outline hydrates lazily.
+**Status: historical design record — phases A–G all shipped.** Written
+as a plan against `0.3.0`/`0.4.0`; the phase list at the bottom now
+matches shipped modules (`worldgen/blueprint` scoped derivation,
+`worldgen/lore`, `worldgen/hydrate`, `worldgen/cartridge`,
+`travel/planner`+`travel/modes`, `layout/engine`+`layout/settlement`,
+and the MCP world surface). Read it for the reasoning and the data
+shapes; where a detail disagrees with the code (version numbers,
+exact signatures, tool names), **the code and the README are current
+and this document is not.** The end-to-end proof lives in
+[`examples/world/`](../examples/world).
+
+Original goal: a world that can carry an 80-hour campaign — many
+climates, many dungeon flavours, rulers and legends that exist before
+the player needs them — while staying cheap, because everything below
+an outline hydrates lazily.
 
 ---
 

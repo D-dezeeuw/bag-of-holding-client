@@ -82,7 +82,7 @@ export {
 } from './src/worldgen/cartridge.js';
 // Entity-id ⇄ cell addressing over a cartridge: what does the world say about
 // entity X, and how to write an answer back. The fold base for session replay
-// and the future revision format both speak this addressing.
+// and the revision format (exported below) both speak this addressing.
 export {
   cellsOf, entityIdsOf, projectCells,
   REVISION_VERSION, REVISION_MIGRATIONS, REVISION_CELLS,
