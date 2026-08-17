@@ -39,10 +39,13 @@ export const DUNGEON_OVERLAYS = Object.freeze({
   // Overlay ids resolve against the kernel registry (2.6.0 added the
   // eight blocks these pools had referenced into the void for months;
   // `cave-spider` was invented, renamed here to the SRD-listed
-  // `giant-wolf-spider`). Ids with no block anywhere yet — fungal-zombie,
-  // stone-sentinel, myconid-sovereign, young-drake, lesser-demon — are
-  // silently filtered by the statBlockFor guard below and wait on
-  // Bestiary I.
+  // `giant-wolf-spider`). The last five holdouts — fungal-zombie,
+  // stone-sentinel, myconid-sovereign, young-drake, lesser-demon —
+  // shipped in the kernel's Bestiary I (2.7.0): a host that mounts it
+  // (`createEngine({ extraMonsters: BESTIARY_I })`) resolves every
+  // pool in full. Against a bare-SRD engine the statBlockFor guard
+  // below still filters them and the highest surviving CR stands in
+  // as the vault boss — degraded, never empty.
   'flooded cavern':       { atmosphere: 'Water drips from the ceiling. The floor is slick and treacherous.',     enemies: ['giant-rat', 'constrictor-snake', 'giant-wolf-spider', 'crocodile', 'giant-spider'] },
   'haunted manor':        { atmosphere: 'Dust motes drift through pale light. A door creaks on its own.',        enemies: ['zombie', 'shadow', 'specter', 'ghoul', 'wight'] },
   'abandoned mine':       { atmosphere: 'Rotting timber props sag under the weight of earth. Pickaxes rust in corners.', enemies: ['kobold', 'swarm-of-rats', 'giant-spider', 'ghoul', 'ogre'] },
