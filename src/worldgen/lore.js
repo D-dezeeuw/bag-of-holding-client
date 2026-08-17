@@ -239,8 +239,9 @@ export function bindCrownsToFactions(crowns, factions, seed) {
 // `seatOf` the crown and `leads` the faction. A throneless power gets a
 // leader. Voice and wants ride on the stub so the table can hate a face
 // before hydration ever writes prose. Pure and seeded, like every minter.
-export function mintNpcStubs(seed, { crowns = [], factions = [] } = {}) {
+export function mintNpcStubs(seed, { crowns = [], factions = [], npcsPerFaction = 1 } = {}) {
   const rng = mulberry32(((seed ?? 1) + 606) >>> 0);
+  const perFaction = Math.max(1, Math.trunc(npcsPerFaction));
   const npcs = [];
   for (const f of factions) {
     const throne = crowns.find(c =>
@@ -256,6 +257,21 @@ export function mintNpcStubs(seed, { crowns = [], factions = [] } = {}) {
       wants: pickN(NPC_WANTS, 2, rng),
       stub: true,
     });
+    // Extra faces per faction (the npcsPerFaction dial): notables under the
+    // leader — same shape, no seat, drawn from the same stream so the
+    // default (1) mints byte-identically to the pre-dial minter.
+    for (let extra = 1; extra < perFaction; extra++) {
+      npcs.push({
+        id: `npc-${npcs.length}`,
+        name: `${pick(NPC_GIVEN_NAMES, rng)} of ${f.name}`,
+        role: 'notable',
+        seatOf: null,
+        leads: f.id,
+        voice: pick(NPC_VOICES, rng),
+        wants: pickN(NPC_WANTS, 2, rng),
+        stub: true,
+      });
+    }
   }
   return npcs;
 }
@@ -265,7 +281,10 @@ export function mintNpcStubs(seed, { crowns = [], factions = [] } = {}) {
 // carry it and a replay reproduce it. `factionSlots` (the world blueprint's
 // archetype roll) rides in so a host's setting tables re-skin the factions
 // the same way they re-skin everything else.
-export function mintLore({ geo, continents, provinces }, seed, { eraCount = null, factionSlots = null } = {}) {
+export function mintLore({ geo, continents, provinces }, seed, {
+  eraCount = null, factionSlots = null,
+  factionCount = null, npcsPerFaction = null, legendCount = null,
+} = {}) {
   const eras = mintEras(seed, { count: eraCount });
   const legends = [];
   let crowns = [];
@@ -275,14 +294,14 @@ export function mintLore({ geo, continents, provinces }, seed, { eraCount = null
     const mine = provinces.filter(p => geo.nodes[p].parent === cId);
     provincesByContinent[cId] = mine;
     const firstPort = mine.find(p => geo.nodes[p].port) ?? mine[0] ?? null;
-    legends.push(...mintLegendStubs(cId, cNode.seed, { provinces: mine, firstPort, eras }));
+    legends.push(...mintLegendStubs(cId, cNode.seed, { provinces: mine, firstPort, eras, count: legendCount }));
     for (const pId of mine) {
       crowns.push(mintCrownStub(pId, geo.nodes[pId].seed, { culture: cNode.nameParts }));
     }
   }
-  const factions = mintFactionStubs(seed, { provincesByContinent, slots: factionSlots });
+  const factions = mintFactionStubs(seed, { provincesByContinent, slots: factionSlots, count: factionCount });
   const warState = mintWarState(seed, factions);
   crowns = bindCrownsToFactions(crowns, factions, seed);
-  const npcs = mintNpcStubs(seed, { crowns, factions });
+  const npcs = mintNpcStubs(seed, { crowns, factions, npcsPerFaction: npcsPerFaction ?? 1 });
   return { eras, legends, crowns, factions, warState, npcs };
 }

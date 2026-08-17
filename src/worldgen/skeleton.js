@@ -75,13 +75,34 @@ export function mintWorldSkeleton(seed, { continents = null, provincesPer = null
   const continentIds = [];
   const provinceIds = [];
 
+  // Name dedup, stream-preserving: the primary draws below are byte-for-byte
+  // what they always were (so collision-free worlds bake identically); only
+  // when a draw REPEATS an earlier name does `unique` walk the ordered combo
+  // grid for the first unused pair — no extra rng draws — and fall back to a
+  // numeral once a pool is exhausted. Before this, 47% of default worlds
+  // shipped a duplicate province name.
+  const takenNames = new Set();
+  const unique = (name, as, bs) => {
+    if (!takenNames.has(name)) { takenNames.add(name); return name; }
+    for (const a of as) {
+      for (const b of bs) {
+        const alt = `${a}${b}`;
+        if (!takenNames.has(alt)) { takenNames.add(alt); return alt; }
+      }
+    }
+    for (let i = 2; ; i++) {
+      const alt = `${name} ${'I'.repeat(i)}`;
+      if (!takenNames.has(alt)) { takenNames.add(alt); return alt; }
+    }
+  };
+
   const nContinents = continents ?? randInt(2, 4, rng);
   for (let c = 0; c < nContinents; c++) {
     const cSeed = randInt(1, 2 ** 30, rng);
     const cRng  = mulberry32(cSeed);
     const cId   = `continent-${c}`;
     geo = addNode(geo, {
-      id: cId, name: `${pick(cA, cRng)}${pick(cB, cRng)}`, kind: 'continent',
+      id: cId, name: unique(`${pick(cA, cRng)}${pick(cB, cRng)}`, cA, cB), kind: 'continent',
       seed: cSeed, hook: pick(hookPool, cRng), stub: true, detail: 0, parent: null,
     });
     continentIds.push(cId);
@@ -102,7 +123,7 @@ export function mintWorldSkeleton(seed, { continents = null, provincesPer = null
       const pRng  = mulberry32(pSeed);
       const pId   = `${cId}.province-${p}`;
       geo = addNode(geo, {
-        id: pId, name: `${pick(prefixes, pRng)}${pick(suffixes, pRng)}`, kind: 'province',
+        id: pId, name: unique(`${pick(prefixes, pRng)}${pick(suffixes, pRng)}`, prefixes, suffixes), kind: 'province',
         seed: pSeed, hook: pick(hookPool, pRng), stub: true, detail: 0, parent: cId,
       });
       // The province owns its climate band — recorded on the node so regions

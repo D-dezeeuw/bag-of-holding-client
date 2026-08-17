@@ -50,9 +50,16 @@ export const CARTRIDGE_MIGRATIONS = Object.freeze({
 // hydrate real prose into continent/province outlines — the "detail ≤ 1"
 // cartridge that makes cold landings instant — instead of each one staying
 // at its deterministic hook text.
-export async function bakeCartridge(seed, { complete = null, eraCount = null, setting = null } = {}) {
+export async function bakeCartridge(seed, {
+  complete = null, eraCount = null, setting = null,
+  // The generation dials (all null = today's defaults, byte-identical):
+  // world size via the skeleton, power density via the lore. These are the
+  // knobs an admin surface exposes — one options bag, no hand-rolled bakes.
+  continents = null, provincesPer = null,
+  factionCount = null, npcsPerFaction = null, legendCount = null,
+} = {}) {
   const { id: settingId = null, tables = null, syllables = null, hooks = null } = setting ?? {};
-  const sk = mintWorldSkeleton(seed, { syllables, hooks });
+  const sk = mintWorldSkeleton(seed, { continents, provincesPer, syllables, hooks });
   let geo = sk.geo;
 
   // The world blueprint rolls BEFORE the lore so its faction archetypes feed
@@ -60,7 +67,10 @@ export async function bakeCartridge(seed, { complete = null, eraCount = null, se
   // way they re-skin everything else. Order is safe: both are pure and draw
   // from independent seeded streams.
   const world = deriveBlueprint(null, seed, 'world', { tables });
-  const lore = mintLore(sk, seed, { eraCount, factionSlots: world.factionSlots });
+  const lore = mintLore(sk, seed, {
+    eraCount, factionSlots: world.factionSlots,
+    factionCount, npcsPerFaction, legendCount,
+  });
   const slices = { [`world`]: world };
   for (const cId of sk.continents) {
     const cNode = geo.nodes[cId];
