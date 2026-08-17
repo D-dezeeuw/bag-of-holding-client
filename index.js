@@ -187,6 +187,19 @@ export {
   rollEncounterInitiative,
 } from './src/ui/initiative.js';
 
+// ── The World Atlas — look at a generated world ─────────────────────────────
+// A pure core (layout + fog + normalisation) and the elements that draw it.
+// The world graph carries no coordinates by design, so `worldLayout` mints
+// them deterministically at VIEW time, reusing the same grid placement that
+// lays out dungeons and settlements: same world, same map, forever.
+// Two editions: `gm` is the spoiler cut, `player` DELETES what the table
+// has not discovered — the same player/GM split world_export ships.
+export {
+  atlasViewModel, worldLayout, fromCartridge, fromAtlasPayload, playerCut,
+  CLIMATE_COLORS, EDITIONS,
+} from './src/ui/atlas.js';
+export { defineWorldAtlas } from './src/ui/atlas-views.js';
+
 // ── Grant redemption (closing the keyless-deployment gap) ───────────────────
 // On a keyless MCP server the image gate hands the HOST a render grant;
 // this is the redemption counter — expiry-checked, provider-injected,
