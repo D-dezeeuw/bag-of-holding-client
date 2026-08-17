@@ -191,3 +191,9 @@ export {
 // this is the redemption counter — expiry-checked, provider-injected,
 // with the refund verdict the server's refund path needs.
 export { grantIsLive, redeemImageGrant } from './src/llm/redeem.js';
+
+// ── Narration end-to-end (0.29.0) — closes the 0.26.0 island ────────────────
+// narrate(): engine result → prompt → this repo's OWN chatCompletion
+// (fallback chains, token accounting) → parsed narration, with an
+// injectable LRU cache so identical resolutions stop costing tokens.
+export { narrate, makeNarrationCache } from './src/llm/narrate.js';
