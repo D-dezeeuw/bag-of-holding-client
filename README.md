@@ -267,6 +267,10 @@ any genre.
 
 ## Going deeper
 
+- [`docs/generation-dials-and-travel.md`](docs/generation-dials-and-travel.md) —
+  every generation knob with its measured envelope (the admin-page surface),
+  and the travel contract: roads → priced sea passage → air → discovery-gated
+  waygates.
 - [`docs/worldgen-lore-tree.md`](docs/worldgen-lore-tree.md) — the worldgen
   design record (phases A–G, all shipped): skeleton → lore → hydration →
   cartridges → crossings → layouts.
