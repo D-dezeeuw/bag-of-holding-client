@@ -186,12 +186,13 @@ describe('the v1 → v2 migration', () => {
     // sea (ring, not chain). Same artifact-is-identity rule as the slices
     // note below: the old artifact keeps its old content forever.
     const structural = (nodes) => Object.fromEntries(Object.entries(nodes).map(
-      ([id, { name, digest, hook, nameParts, ...rest }]) => [id, rest]));
+      ([id, { name, digest, hook, nameParts, waygate, ...rest }]) => [id, rest]));
     assert.deepEqual(structural(mounted.geo.nodes), structural(fresh.data.geo.nodes));
     assert.deepEqual(
-      mounted.geo.edges.filter((e) => e.kind !== 'sea'),
-      fresh.data.geo.edges.filter((e) => e.kind !== 'sea'));
+      mounted.geo.edges.filter((e) => e.kind === 'border'),
+      fresh.data.geo.edges.filter((e) => e.kind === 'border'));
     assert.ok(fresh.data.geo.edges.some((e) => e.kind === 'sea'), 'fresh bake is laned');
+    assert.ok(fresh.data.geo.edges.some((e) => e.kind === 'gate'), 'fresh bake carries dormant waygates');
     assert.deepEqual(Object.keys(mounted.slices).sort(), Object.keys(fresh.data.slices).sort());
     assert.deepEqual(mounted.lore.eras, fresh.data.lore.eras);
     assert.deepEqual(mounted.lore.legends, fresh.data.lore.legends);

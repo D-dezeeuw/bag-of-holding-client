@@ -22,16 +22,21 @@ const segmentsFor = (days, mode) =>
 /**
  * Plan a journey from `fromId` to `toId`.
  *
- *   capabilities: { sea?: boolean, air?: boolean } — what the party can do.
- *     A ship is a capability, not a simulation: how they got it is the
- *     economy's and the kernel's business.
+ *   capabilities: { sea?: boolean, air?: boolean, gate?: boolean } — what
+ *     the party can do. A ship is a capability, not a simulation: how they
+ *     got it is the economy's and the kernel's business. `gate` is the
+ *     waygate attunement (the quest reward); even with it, a gate edge only
+ *     opens between endpoints the party has DISCOVERED — the D&D "you must
+ *     have seen the circle" rule as data.
  *   maxSegmentsPerLeg: long crossings split into legs (diegetic resupply,
  *     and each leg restarts the promote-on-departure latency budget).
  *
- * Returns { legs: [{ from, to, mode, days, segments, path }], totalDays,
- * totalSegments, mode } or null when no traversable route exists. Air is
- * priced off the underlying route's days × airFactor — nodes have no
- * coordinates, deliberately (doc 18 §9): flight is faster, never free.
+ * Returns { legs: [{ from, to, mode, days, segments, path, costHint }],
+ * totalDays, totalSegments, mode } or null when no traversable route
+ * exists. Air is priced off the underlying route's days × airFactor —
+ * nodes have no coordinates, deliberately (doc 18 §9): flight is faster,
+ * never free. Each leg's `costHint` is its mode's pricing shape (sea
+ * passage per day, gate toll) for the economy layer to turn into gold.
  */
 export function planJourney(geo, fromId, toId, {
   modes = TRAVEL_MODES,
@@ -40,17 +45,27 @@ export function planJourney(geo, fromId, toId, {
 } = {}) {
   if (!geo?.nodes[fromId] || !geo?.nodes[toId]) return null;
 
-  // Flight: any edge is traversable from above; days shrink by the factor.
+  const gateOpen = (edge) =>
+    capabilities.gate === true &&
+    geo.nodes[edge.edgeFrom]?.discovered === true &&
+    geo.nodes[edge.edgeTo]?.discovered === true;
+
+  // Flight: any land/sea edge is traversable from above; days shrink by the
+  // factor. Gates are not overflown — they are stepped through or not.
   if (capabilities.air) {
-    const route = routeBetween(geo, fromId, toId);
+    const route = routeBetween(geo, fromId, toId, { traversable: (e) => e.kind !== 'gate' });
     if (!route) return null;
     const air = modes.air ?? TRAVEL_MODES.air;
     const days = Math.max(1, Math.ceil(route.days * (air.airFactor ?? 0.5)));
     const legs = splitLeg({ from: fromId, to: toId, mode: 'air', days, path: route.path }, air, maxSegmentsPerLeg);
-    return summarize(legs, 'air');
+    return summarize(withCosts(legs, modes), 'air');
   }
 
-  const traversable = (edge) => edge.kind !== 'sea' || capabilities.sea === true;
+  const traversable = (edge) => {
+    if (edge.kind === 'sea') return capabilities.sea === true;
+    if (edge.kind === 'gate') return gateOpen(edge);
+    return true;
+  };
   const route = routeBetween(geo, fromId, toId, { traversable });
   if (!route) return null;
 
@@ -60,7 +75,7 @@ export function planJourney(geo, fromId, toId, {
   for (let i = 1; i < route.path.length; i++) {
     const a = route.path[i - 1], b = route.path[i];
     const edge = edgeBetween(geo, a, b);
-    const mode = edge?.kind === 'sea' ? 'sea' : 'road';
+    const mode = edge?.kind === 'sea' ? 'sea' : edge?.kind === 'gate' ? 'gate' : 'road';
     if (!cur || cur.mode !== mode) {
       if (cur) legs.push(cur);
       cur = { from: a, to: b, mode, days: 0, path: [a] };
@@ -71,9 +86,19 @@ export function planJourney(geo, fromId, toId, {
   }
   if (cur) legs.push(cur);
 
-  const sized = legs.flatMap(leg =>
-    splitLeg(leg, modes[leg.mode] ?? TRAVEL_MODES.road, maxSegmentsPerLeg));
-  return summarize(sized, sized.some(l => l.mode === 'sea') ? 'sea' : 'road');
+  const sized = withCosts(
+    legs.flatMap(leg => splitLeg(leg, modes[leg.mode] ?? TRAVEL_MODES.road, maxSegmentsPerLeg)),
+    modes);
+  const headline = sized.some(l => l.mode === 'gate') ? 'gate'
+    : sized.some(l => l.mode === 'sea') ? 'sea' : 'road';
+  return summarize(sized, headline);
+}
+
+function withCosts(legs, modes) {
+  return legs.map(leg => ({
+    ...leg,
+    costHint: (modes[leg.mode] ?? TRAVEL_MODES[leg.mode])?.costHint ?? null,
+  }));
 }
 
 function splitLeg(leg, mode, maxSegmentsPerLeg) {

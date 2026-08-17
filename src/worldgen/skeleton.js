@@ -171,6 +171,29 @@ export function mintWorldSkeleton(seed, { continents = null, provincesPer = null
   for (let i = 1; i < ports.length; i++) lane(ports[i - 1], ports[i]);
   if (ports.length > 2) lane(ports[ports.length - 1], ports[0]);
 
+  // Waygates: one dormant ancient gate per continent, the D&D
+  // teleportation-circle pattern as data. The gate province is picked
+  // DETERMINISTICALLY (the continent's middle province — no rng draws, so
+  // pre-waygate worlds keep their exact streams) and every gate pair is
+  // connected with a 0-day 'gate' edge. Dormant means the edges exist but
+  // the planner refuses them until the party has BOTH discovered the
+  // endpoints and earned the capability — distance is a cost early and a
+  // key late. Settings re-skin the prose at hydration (a relic-arch, a
+  // pressure-rail terminus, a mist-door); the skeleton only places them.
+  const waygates = [];
+  for (const cId of continentIds) {
+    const mine = provinceIds.filter(p => geo.nodes[p].parent === cId);
+    if (!mine.length) continue;
+    const gate = mine[Math.floor(mine.length / 2)];
+    geo = patchNode(geo, gate, { waygate: true });
+    waygates.push(gate);
+  }
+  for (let i = 0; i < waygates.length; i++) {
+    for (let j = i + 1; j < waygates.length; j++) {
+      geo = connect(geo, waygates[i], waygates[j], { direction: 'east', days: 0, kind: 'gate' });
+    }
+  }
+
   return { geo, continents: continentIds, provinces: provinceIds };
 }
 
