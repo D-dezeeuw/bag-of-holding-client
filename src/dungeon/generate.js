@@ -17,6 +17,7 @@
 //     crOf(id) -> number,              // optional; defaults to statBlockFor(id).cr
 //     overlays,                        // theme → { atmosphere, enemies:[id] }; default DUNGEON_OVERLAYS
 //     defaultEnemyIds: [id],           // fallback pool when no overlay matches
+//     maxEnemies,                      // optional cap on non-boss enemies; default scales with rooms
 //     content: { houseStyles, roomPools, treasures, keys, loot,
 //                domainTreasures, domainKeys, enemyName(id), enemyIntro(id,name,style) },
 //   }) -> { currentRoom, exitRoomId, rooms, npcs }
@@ -267,7 +268,14 @@ export function generateDungeon(seed, opts = {}) {
 
     npcs.boss = buildEnemyNpc('boss', `room-${spineLen - 1}`, bossId, style, c, statBlockFor, { isBoss: true });
 
-    const enemyCount = rrandInt(1, Math.min(3, totalRooms - 2), rng);
+    // Enemy density scales with the dungeon instead of pinning at 3 — a
+    // 100-room delve used to ship one enemy per 23 rooms. Default keeps
+    // small dungeons byte-identical (max stays 3 below 32 rooms, so the
+    // rng draw is unchanged); `maxEnemies` is the host's dial.
+    const enemyCap = Math.max(1, Math.min(
+      opts.maxEnemies ?? Math.max(3, Math.floor(totalRooms / 8)),
+      totalRooms - 2));
+    const enemyCount = rrandInt(1, enemyCap, rng);
     const enemyRooms = rshuffle(Array.from({ length: totalRooms }, (_, i) => i).filter(i => i !== 0 && i !== spineLen - 1), rng).slice(0, enemyCount);
     for (let e = 0; e < enemyRooms.length; e++) {
       const frac = depthFraction(enemyRooms[e]);
