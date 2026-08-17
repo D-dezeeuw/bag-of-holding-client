@@ -6,8 +6,8 @@
 //    defeat the King of Faction A — with lore all along the way."
 //
 // A feasibility probe against the pre-Phase-A engine found seven places this
-// story could be TOLD but not HELD. Each phase turns some assertions green;
-// the `todo` blocks at the bottom name what is still prose-only. When the
+// story could be TOLD but not HELD. Each phase turned its assertions green,
+// and the last `todo` block flipped to a real test long ago. When the
 // last todo flips to a real test, the engine holds the whole thread.
 
 import { describe, it } from 'node:test';
