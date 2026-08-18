@@ -79,7 +79,7 @@
   .segmented button { border: 0; border-radius: 0; }
   .segmented button[aria-pressed="true"] { background: var(--accent); color: #221c0c; font-weight: 600; }
 
-  boh-world-map, boh-power-graph, boh-dynasty-tree {
+  boh-world-map, boh-power-graph, boh-dynasty-tree, boh-local-map {
     display: block; margin-bottom: 1.1rem;
   }
   [hidden] { display: none !important; }
@@ -138,11 +138,13 @@
     <button id="tab-map" class="tab" role="tab" aria-selected="true">Map</button>
     <button id="tab-powers" class="tab" role="tab" aria-selected="false">Powers</button>
     <button id="tab-dynasties" class="tab" role="tab" aria-selected="false">Dynasties</button>
+    <button id="tab-local" class="tab" role="tab" aria-selected="false">Local</button>
   </div>
 
   <boh-world-map id="view-map"></boh-world-map>
   <boh-power-graph id="view-powers" hidden></boh-power-graph>
   <boh-dynasty-tree id="view-dynasties" hidden></boh-dynasty-tree>
+  <boh-local-map id="view-local" hidden></boh-local-map>
 
   <div class="readout">
     <div class="card">
@@ -171,6 +173,8 @@
 
 <script type="module">
   import { bakeCartridge } from '../src/worldgen/cartridge.js';
+  import { generateDungeon } from '../src/dungeon/generate.js';
+  import { mulberry32 } from '../src/worldgen/rng.js';
   import { markVisited } from '../src/worldgen/geography.js';
   import { fromCartridge, atlasViewModel } from '../src/ui/atlas.js';
   import { defineWorldAtlas } from '../src/ui/atlas-views.js';
@@ -179,7 +183,7 @@
   const map = document.getElementById('view-map');
   // Element ids are prefixed so the views never collide with the
   // readout lists below them.
-  const VIEWS = ['map', 'powers', 'dynasties'];
+  const VIEWS = ['map', 'powers', 'dynasties', 'local'];
   const viewEl = (name) => document.getElementById(`view-${name}`);
   const $ = (id) => document.getElementById(id);
 
@@ -206,7 +210,35 @@
     if (!cartridge) return;
     const world = fromCartridge(cartridge, { edition });
     const title = `World ${cartridge.data.seed}`;
-    for (const name of VIEWS) viewEl(name).setWorld(world, { title });
+    for (const name of VIEWS) {
+      if (name !== 'local') viewEl(name).setWorld(world, { title });
+    }
+    // The local view needs a PLACE, not a world: roll a dungeon from the
+    // same seed so the tab always has something real to draw.
+    const seed = cartridge.data.seed;
+    const dungeon = generateDungeon(seed, {
+      rng: mulberry32(seed),
+      statBlockFor: (id, { isBoss } = {}) => ({
+        hp: 11, maxHp: 11, ac: 12, toHit: 3, damageDie: '1d6', damageBonus: 1,
+        damageType: 'slashing', cr: isBoss ? 3 : 1, tier: isBoss ? 'boss' : 'minion',
+      }),
+      defaultEnemyIds: ['skeleton', 'ghoul', 'wight'],
+      size: { spineMin: 5, spineMax: 7, branchMin: 2, branchMax: 4 },
+      content: {
+        houseStyles: ['drowned hold'],
+        roomPools: {
+          entrance: [{ name: 'Stair Head' }], vault: [{ name: 'The Vault' }],
+          chamber: [{ name: 'Chamber' }], hall: [{ name: 'Hall' }],
+          corridor: [{ name: 'Corridor' }], storage: [{ name: 'Store' }],
+          quarters: [{ name: 'Quarters' }], shrine: [{ name: 'Shrine' }],
+        },
+        treasures: [{ name: 'reliquary', desc: 'A sealed reliquary.' }],
+        keys: [{ name: 'bone key', desc: 'A key of yellowed bone.' }],
+        loot: [{ name: 'coin purse', desc: 'Old coin.' }],
+        enemyName: (id) => id.replace(/-/g, ' '),
+      },
+    });
+    viewEl('local').setLocal(dungeon, { title: `A hold beneath World ${seed}` });
     const vm = atlasViewModel(world);
 
     $('stat-provinces').textContent = vm.meta.counts.provinces;
@@ -289,6 +321,9 @@
   });
   viewEl('dynasties').addEventListener('select-crown', (e) => {
     $('stat-note').textContent = `selected: ${e.detail.house}`;
+  });
+  viewEl('local').addEventListener('select-cell', (e) => {
+    $('stat-note').textContent = `selected: ${e.detail.label}`;
   });
 
   syncToggle();

@@ -391,3 +391,73 @@ export function relationEdges(powers = []) {
   }
   return out;
 }
+
+/**
+ * Normalise a settlement layout or a dungeon into one drawable shape.
+ * Both are grid-placed graphs — the same `placeOnGrid` walk underneath —
+ * so one view draws either:
+ *
+ *   localViewModel({ plots })  → a settlement (plot.pos, role, building)
+ *   localViewModel({ rooms })  → a dungeon    (room.pos, exits, loot, npcs)
+ *
+ *   → { kind, cells: [{ id, x, y, label, role, tags, locked }], links, bounds }
+ */
+export function localViewModel(local = {}, { npcs = null, cell = ATLAS_CELL } = {}) {
+  const isDungeon = !!local.rooms;
+  const source = isDungeon ? Object.values(local.rooms) : (local.plots ?? []);
+  const occupants = npcs ?? local.npcs ?? {};
+  const byRoom = {};
+  for (const n of Object.values(occupants)) {
+    if (!n?.roomId) continue;
+    (byRoom[n.roomId] ??= []).push(n);
+  }
+
+  const cells = source.filter((c) => c?.pos).map((c) => {
+    const here = byRoom[c.id] ?? [];
+    return {
+      id: c.id,
+      x: c.pos.col * cell,
+      y: c.pos.row * cell,
+      // A settlement plot is named by what stands on it; a dungeon room
+      // by what it is. Either way the label is what a player would say.
+      label: isDungeon ? (c.name ?? c.id) : (c.building?.name ?? c.building?.type ?? ''),
+      role: isDungeon
+        ? (c.id === local.currentRoom ? 'entrance' : c.id === local.exitRoomId ? 'vault' : 'room')
+        : (c.role ?? 'plot'),
+      tags: [
+        ...(here.some((n) => n.isBoss) ? ['boss'] : []),
+        ...(here.length && !here.some((n) => n.isBoss) ? ['foes'] : []),
+        ...((c.loot ?? []).length ? ['loot'] : []),
+        ...((c.stalls ?? []).length ? ['stalls'] : []),
+      ],
+      occupants: here.length,
+    };
+  });
+
+  const at = new Map(cells.map((c) => [c.id, c]));
+  const links = [];
+  const seen = new Set();
+  for (const c of source) {
+    for (const exit of c.exits ?? []) {
+      const target = exit.roomId ?? exit.plotId;
+      if (!at.has(c.id) || !at.has(target)) continue;
+      const key = [c.id, target].sort().join('|');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      links.push({ from: c.id, to: target, locked: exit.locked === true,
+                   a: at.get(c.id), b: at.get(target) });
+    }
+  }
+
+  const xs = cells.map((c) => c.x), ys = cells.map((c) => c.y);
+  const pad = cell;
+  const bounds = xs.length
+    ? { minX: Math.min(...xs) - pad, maxX: Math.max(...xs) + pad,
+        minY: Math.min(...ys) - pad, maxY: Math.max(...ys) + pad }
+    : { minX: -1, maxX: 1, minY: -1, maxY: 1 };
+
+  return Object.freeze({
+    kind: isDungeon ? 'dungeon' : 'settlement',
+    cells: Object.freeze(cells), links: Object.freeze(links), bounds, cell,
+  });
+}

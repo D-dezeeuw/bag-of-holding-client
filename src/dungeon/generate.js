@@ -21,6 +21,8 @@
 //     content: { houseStyles, roomPools, treasures, keys, loot,
 //                domainTreasures, domainKeys, enemyName(id), enemyIntro(id,name,style) },
 //   }) -> { currentRoom, exitRoomId, rooms, npcs }
+// Each room carries `pos: { col, row }` — its cell on the placement grid,
+// so a host can draw the floor without re-deriving the walk.
 
 import { mulberry32, pick as rpick, shuffle as rshuffle, randInt as rrandInt } from '../worldgen/rng.js';
 // The spatial core lives in layout/engine.js now (doc 18 §10) — settlements
@@ -206,6 +208,11 @@ export function generateDungeon(seed, opts = {}) {
     ].filter(Boolean).join(' ');
     rooms[id] = {
       id, name: def.name, description: themedDesc,
+      // The grid cell this room was placed on. The generator has always
+      // known it; publishing it is what lets a host DRAW the floor (the
+      // settlement layout has carried `pos` from the start). Additive:
+      // every existing consumer ignores it.
+      pos: positions[i],
       exits: adjacency[i].map(a => ({ dir: a.dir, roomId: `room-${a.target}`, locked: false })),
       loot: [],
     };

@@ -14,8 +14,11 @@ import { bakeCartridge } from '../src/worldgen/cartridge.js';
 import { markVisited } from '../src/worldgen/geography.js';
 import {
   atlasViewModel, worldLayout, fromCartridge, playerCut, fromAtlasPayload, CLIMATE_COLORS,
-  groupDynasties, relationEdges,
+  groupDynasties, relationEdges, localViewModel,
 } from '../src/ui/atlas.js';
+import { generateDungeon } from '../src/dungeon/generate.js';
+import { settlementLayout } from '../src/layout/settlement.js';
+import { mulberry32 } from '../src/worldgen/rng.js';
 import { defineWorldAtlas } from '../src/ui/atlas-views.js';
 
 const world = async (seed = 1234, opts = {}) => (await bakeCartridge(seed, opts));
@@ -285,5 +288,69 @@ describe('a cast the table can tell apart', () => {
         assert.equal(new Set(voices).size, voices.length, `seed ${seed} repeated a voice`);
       }
     }
+  });
+});
+
+describe('local maps (settlements and dungeons)', () => {
+  const statBlockFor = (id, { isBoss } = {}) => ({
+    hp: 10, maxHp: 10, ac: 12, toHit: 3, damageDie: '1d6', damageBonus: 1,
+    cr: isBoss ? 3 : 1, tier: isBoss ? 'boss' : 'minion',
+  });
+  const aDungeon = (seed = 7) => generateDungeon(seed, {
+    rng: mulberry32(seed), statBlockFor,
+    defaultEnemyIds: ['skeleton', 'ghoul'], content: {},
+  });
+
+  it('every dungeon room publishes the grid cell it was placed on', () => {
+    // The generator always knew; without it on the room a host cannot
+    // draw the floor without re-deriving the whole walk.
+    for (const seed of [1, 7, 99]) {
+      for (const room of Object.values(aDungeon(seed).rooms)) {
+        assert.ok(room.pos, `${room.id} has no pos`);
+        assert.ok(Number.isInteger(room.pos.col) && Number.isInteger(room.pos.row));
+      }
+    }
+  });
+
+  it('draws a dungeon: one cell per room, doors deduped, locks kept', () => {
+    const d = aDungeon(7);
+    const vm = localViewModel(d);
+    assert.equal(vm.kind, 'dungeon');
+    assert.equal(vm.cells.length, Object.keys(d.rooms).length);
+
+    // Exits are recorded from both sides; a door is one line, not two.
+    const keys = vm.links.map((l) => [l.from, l.to].sort().join('|'));
+    assert.equal(new Set(keys).size, keys.length);
+    const lockedInRooms = Object.values(d.rooms)
+      .flatMap((r) => r.exits.filter((e) => e.locked).map((e) => [r.id, e.roomId].sort().join('|')));
+    assert.deepEqual(
+      new Set(vm.links.filter((l) => l.locked).map((l) => [l.from, l.to].sort().join('|'))),
+      new Set(lockedInRooms));
+
+    // The entrance and the vault are marked, and the boss is pipped.
+    assert.equal(vm.cells.filter((c) => c.role === 'entrance').length, 1);
+    assert.equal(vm.cells.filter((c) => c.role === 'vault').length, 1);
+    const bossRoom = d.npcs.boss.roomId;
+    assert.ok(vm.cells.find((c) => c.id === bossRoom).tags.includes('boss'));
+  });
+
+  it('draws a settlement from the same function: plots, roles, buildings', () => {
+    const town = settlementLayout(9, {
+      kind: 'town',
+      buildings: [{ type: 'inn', name: 'The Bell' }, { type: 'forge', name: 'Ashworks' }],
+    });
+    const vm = localViewModel(town);
+    assert.equal(vm.kind, 'settlement');
+    assert.equal(vm.cells.length, town.plots.length);
+    assert.equal(vm.cells.filter((c) => c.role === 'gate').length, 1);
+    const labels = vm.cells.map((c) => c.label).filter(Boolean);
+    assert.ok(labels.includes('The Bell') && labels.includes('Ashworks'));
+    for (const c of vm.cells) assert.ok(Number.isFinite(c.x) && Number.isFinite(c.y));
+  });
+
+  it('an empty place renders as an empty model, not a crash', () => {
+    const vm = localViewModel({ plots: [] });
+    assert.equal(vm.cells.length, 0);
+    assert.equal(vm.links.length, 0);
   });
 });
