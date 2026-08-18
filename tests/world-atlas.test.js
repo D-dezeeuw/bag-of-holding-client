@@ -1,0 +1,205 @@
+// tests/atlas.test.js — the World Atlas core.
+//
+// What must hold: the layout is DETERMINISTIC (a world always draws the
+// same map, or the atlas is a different picture every session); the
+// player edition DELETES rather than dims (a secret you never send
+// cannot leak through CSS); the normalisation resolves the id-to-id
+// links the views draw (territory, wars, crown → faction → ruler); and
+// registering the elements is a clean no-op under node.
+
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { bakeCartridge } from '../src/worldgen/cartridge.js';
+import { markVisited } from '../src/worldgen/geography.js';
+import {
+  atlasViewModel, worldLayout, fromCartridge, playerCut, fromAtlasPayload, CLIMATE_COLORS,
+} from '../src/ui/atlas.js';
+import { defineWorldAtlas } from '../src/ui/atlas-views.js';
+
+const world = async (seed = 1234, opts = {}) => (await bakeCartridge(seed, opts));
+
+describe('worldLayout', () => {
+  it('is deterministic: the same world draws the same map', async () => {
+    const cart = await world();
+    const a = worldLayout(cart.data.geo, { seed: cart.data.seed });
+    const b = worldLayout(cart.data.geo, { seed: cart.data.seed });
+    assert.deepEqual(a, b);
+  });
+
+  it('places every continent and province, inside its own bounds', async () => {
+    for (const seed of [1, 7, 1234]) {
+      const cart = await world(seed);
+      const { nodes, bounds } = worldLayout(cart.data.geo, { seed });
+      const placeable = Object.values(cart.data.geo.nodes)
+        .filter((n) => n.kind === 'continent' || n.kind === 'province');
+      assert.equal(Object.keys(nodes).length, placeable.length, `seed ${seed}`);
+      for (const n of Object.values(nodes)) {
+        assert.ok(Number.isFinite(n.x) && Number.isFinite(n.y));
+        assert.ok(n.x >= bounds.minX && n.x <= bounds.maxX);
+        assert.ok(n.y >= bounds.minY && n.y <= bounds.maxY);
+      }
+    }
+  });
+
+  it('gives provinces of one continent distinct positions', async () => {
+    const cart = await world(1234, { continents: 3, provincesPer: 4 });
+    const { nodes } = worldLayout(cart.data.geo, { seed: 1234 });
+    const provinces = Object.entries(nodes).filter(([, n]) => n.kind === 'province');
+    const keys = provinces.map(([, n]) => `${n.x.toFixed(3)},${n.y.toFixed(3)}`);
+    assert.equal(new Set(keys).size, keys.length, 'two provinces landed on one square');
+  });
+
+  it('is STABLE UNDER FOG: a place keeps its coordinates as others are found', async () => {
+    // The player edition hands the layout a subset. If positions came from
+    // array order — or from an rng stream shared between continents, or a
+    // ring sized by the continents currently visible — a province would
+    // slide across the map as its neighbours were discovered, and "same
+    // world, same map" would be a lie. This walks the real path: reveal
+    // one province at a time and compare against the GM chart.
+    const cart = await world(1234, { continents: 3, provincesPer: 4 });
+    const gm = atlasViewModel(fromCartridge(cart));
+    const gmAt = Object.fromEntries(gm.map.provinces.map((p) => [p.id, p]));
+
+    let geo = cart.data.geo;
+    const order = Object.values(geo.nodes).filter((n) => n.kind === 'province');
+    for (const next of order) {
+      geo = markVisited(geo, next.id);
+      geo = markVisited(geo, next.parent);
+      geo = { ...geo, edges: geo.edges.map((e) =>
+        (geo.nodes[e.from]?.discovered && geo.nodes[e.to]?.discovered)
+          ? { ...e, discovered: true } : e) };
+      const vm = atlasViewModel(
+        fromCartridge({ ...cart, data: { ...cart.data, geo } }, { edition: 'player' }));
+      for (const p of vm.map.provinces) {
+        assert.equal(p.x, gmAt[p.id].x, `${p.id} drifted in x once ${next.id} was found`);
+        assert.equal(p.y, gmAt[p.id].y, `${p.id} drifted in y once ${next.id} was found`);
+      }
+    }
+  });
+
+  it('separates continents from each other', async () => {
+    const cart = await world(1234, { continents: 4, provincesPer: 2 });
+    const { nodes } = worldLayout(cart.data.geo, { seed: 1234 });
+    const centres = Object.entries(nodes)
+      .filter(([, n]) => n.kind === 'continent')
+      .map(([, n]) => n);
+    for (let i = 0; i < centres.length; i++) {
+      for (let j = i + 1; j < centres.length; j++) {
+        const d = Math.hypot(centres[i].x - centres[j].x, centres[i].y - centres[j].y);
+        assert.ok(d > 1, `continents ${i}/${j} overlap (distance ${d})`);
+      }
+    }
+  });
+});
+
+describe('atlasViewModel', () => {
+  it('resolves the links the views draw', async () => {
+    const cart = await world(1234);
+    const vm = atlasViewModel(fromCartridge(cart));
+    assert.equal(vm.edition, 'gm');
+    assert.ok(vm.map.provinces.length > 0);
+    assert.ok(vm.map.continents.length > 0);
+
+    // Every province carries drawable coordinates and a climate colour.
+    for (const p of vm.map.provinces) {
+      assert.ok(Number.isFinite(p.x) && Number.isFinite(p.y));
+      assert.equal(p.color, CLIMATE_COLORS[p.climate] ?? '#8d8d8d');
+    }
+    // Links only reference placed provinces (no dangling endpoints).
+    const ids = new Set(vm.map.provinces.map((p) => p.id));
+    for (const l of vm.map.links) {
+      assert.ok(ids.has(l.from) && ids.has(l.to));
+      assert.ok(l.a && l.b, 'a link without endpoints cannot be drawn');
+    }
+    // Powers resolve their leader; dynasties resolve crown → faction → ruler.
+    assert.ok(vm.powers.length >= 1);
+    assert.ok(vm.powers.every((p) => p.leader === null || p.leader.leads === p.id));
+    assert.ok(vm.dynasties.length >= 1);
+    const seated = vm.dynasties.filter((d) => d.faction);
+    assert.ok(seated.length >= 1, 'at least one crown has a sovereign power');
+    for (const d of seated) {
+      assert.ok(vm.powers.some((p) => p.id === d.faction.id));
+      if (d.ruler) assert.equal(d.ruler.seatOf, d.id);
+    }
+  });
+
+  it('marks contested provinces from the war fronts', async () => {
+    const cart = await world(1234);
+    const vm = atlasViewModel(fromCartridge(cart));
+    const fronts = new Set((cart.data.warState?.wars ?? []).flatMap((w) => w.front ?? []));
+    for (const p of vm.map.provinces) assert.equal(p.atWar, fronts.has(p.id));
+  });
+
+  it('counts what the caption reports', async () => {
+    const cart = await world(1234, { continents: 3, provincesPer: 3, factionCount: 5 });
+    const vm = atlasViewModel(fromCartridge(cart));
+    assert.equal(vm.meta.counts.continents, 3);
+    assert.equal(vm.meta.counts.provinces, 9);
+    assert.equal(vm.meta.counts.powers, 5);
+  });
+});
+
+describe('editions', () => {
+  it('the player cut DELETES the undiscovered, it does not dim it', async () => {
+    const cart = await world(1234);
+    let geo = cart.data.geo;
+    const known = Object.values(geo.nodes).filter((n) => n.kind === 'province').slice(0, 2);
+    for (const n of known) geo = markVisited(geo, n.id);
+    const parents = new Set(known.map((n) => n.parent));
+    for (const p of parents) geo = markVisited(geo, p);
+
+    const cut = playerCut({ ...fromCartridge({ ...cart, data: { ...cart.data, geo } }), edition: 'player' });
+    const ids = Object.keys(cut.geo.nodes);
+    for (const n of known) assert.ok(ids.includes(n.id), 'a visited province is on the map');
+    const hidden = Object.values(cart.data.geo.nodes)
+      .filter((n) => n.kind === 'province' && !known.some((k) => k.id === n.id));
+    for (const n of hidden) {
+      assert.ok(!ids.includes(n.id), `${n.id} leaked into the player cut`);
+    }
+    // Serialising the player cut must not carry a hidden name anywhere.
+    const wire = JSON.stringify(cut);
+    for (const n of hidden) assert.ok(!wire.includes(n.name), `${n.name} leaked in the payload`);
+  });
+
+  it('strips GM-only lore fields from the player cut', async () => {
+    const cart = await world(1234);
+    let geo = cart.data.geo;
+    for (const n of Object.values(geo.nodes)) geo = markVisited(geo, n.id);
+    const cut = playerCut({ ...fromCartridge({ ...cart, data: { ...cart.data, geo } }), edition: 'player' });
+    for (const c of cut.lore.crowns ?? []) {
+      assert.ok(!('stanceOnThreat' in c), 'a crown shipped its threat stance to the players');
+    }
+    for (const l of cut.lore.legends ?? []) {
+      assert.ok(!('kernelOfTruth' in l) && !('payoff' in l), 'a legend shipped its answer');
+    }
+  });
+
+  it('an unexplored world renders as an empty player map, not a crash', async () => {
+    const cart = await world(1234);
+    const vm = atlasViewModel(fromCartridge(cart, { edition: 'player' }));
+    assert.equal(vm.edition, 'player');
+    assert.equal(vm.map.provinces.length, 0);
+    assert.equal(vm.map.links.length, 0);
+    assert.deepEqual(vm.meta.counts.provinces, 0);
+  });
+
+  it('fromAtlasPayload takes the server-scoped shape as-is', () => {
+    const payload = {
+      seed: 7, revision: 2, edition: 'player',
+      geo: { nodes: { 'continent-0': { id: 'continent-0', kind: 'continent', name: 'Ashmoor', discovered: true } }, edges: [] },
+      factions: [], npcs: [], warState: null, lore: {},
+    };
+    const world = fromAtlasPayload(payload);
+    assert.equal(world.edition, 'player');
+    assert.equal(world.revision, 2);
+    const vm = atlasViewModel(world);
+    assert.equal(vm.meta.revision, 2);
+  });
+});
+
+describe('element registration', () => {
+  it('is a clean no-op where custom elements do not exist', () => {
+    assert.equal(defineWorldAtlas(), null);
+  });
+});
