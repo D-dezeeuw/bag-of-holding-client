@@ -208,7 +208,8 @@ export {
 // has not discovered — the same player/GM split world_export ships.
 export {
   atlasViewModel, worldLayout, fromCartridge, fromAtlasPayload, playerCut,
-  groupDynasties, relationEdges, CLIMATE_COLORS, EDITIONS, ATLAS_CELL,
+  groupDynasties, relationEdges, localViewModel,
+  CLIMATE_COLORS, EDITIONS, ATLAS_CELL,
 } from './src/ui/atlas.js';
 export { defineWorldAtlas } from './src/ui/atlas-views.js';
 

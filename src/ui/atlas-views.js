@@ -13,7 +13,7 @@
 // cartography. The default look is ink on aged vellum, because that is
 // what a fantasy world map is; a dark host can flip four variables.
 
-import { atlasViewModel, groupDynasties, relationEdges } from './atlas.js';
+import { atlasViewModel, groupDynasties, relationEdges, localViewModel } from './atlas.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -308,7 +308,40 @@ export function defineWorldAtlas({ prefix = 'boh' } = {}) {
     }
   };
 
-  const registered = {};
+  // The local map is fed a layout, not a world, so it gets its own tiny
+  // class rather than bending `setWorld` to mean two things.
+  class LocalMap extends HTMLEl {
+    #local = null;
+    #root;
+    #opts = {};
+
+    constructor() {
+      super();
+      this.#root = this.attachShadow({ mode: 'open' });
+    }
+
+    connectedCallback() { this.#render(); }
+
+    /** A settlement layout ({ plots }) or a dungeon ({ rooms, npcs }). */
+    setLocal(local, { title = null, npcs = null } = {}) {
+      this.#local = local;
+      this.#opts = { title, npcs };
+      this.#render();
+      return this;
+    }
+
+    get viewModel() { return this.#local ? localViewModel(this.#local, this.#opts) : null; }
+
+    #render() {
+      if (!this.#local) return;
+      renderLocal(this.#root, this.#local, this.#opts);
+    }
+  }
+
+  const localTag = `${prefix}-local-map`;
+  if (!CE.get(localTag)) CE.define(localTag, LocalMap);
+
+  const registered = { [localTag]: CE.get(localTag) };
   for (const [suffix, render] of [
     ['world-map', renderMap],
     ['power-graph', renderPowers],
@@ -636,6 +669,127 @@ function renderDynasties(root, world, { title }) {
   }
 
   frame.appendChild(tree);
+  root.appendChild(frame);
+  return vm;
+}
+
+// ── The local map ───────────────────────────────────────────────────────────
+// One view for both scales below the world: a settlement's streets and a
+// dungeon's corridors are the same grid-placed graph (the layout engine
+// draws both), so they get one renderer and one element. A locked door
+// is the only edge that reads differently from the rest.
+
+const LOCAL_CSS = `
+  /* A floor plan letterboxes into parchment, not ocean. */
+  .frame.local { background: var(--atlas-vellum-deep); }
+  .lm-link { stroke: rgba(47,37,25,.5); stroke-width: 6; stroke-linecap: round; }
+  .lm-link.locked { stroke: var(--atlas-war); stroke-dasharray: 8 7; }
+  .lm-cell { cursor: pointer; }
+  .lm-cell rect { fill: var(--atlas-vellum); stroke: rgba(47,37,25,.55); stroke-width: 2; }
+  .lm-cell:hover rect { stroke: var(--atlas-ink); stroke-width: 3.5; }
+  .lm-cell.entrance rect { fill: #dce7d4; }
+  .lm-cell.vault rect, .lm-cell.square rect { fill: #eddcb4; stroke-width: 3; }
+  .lm-cell.gate rect { fill: #dce7d4; }
+  .lm-cell .name { font-size: 13px; fill: var(--atlas-ink); text-anchor: middle; }
+  .lm-cell .sub { font-size: 11px; fill: var(--atlas-ink-soft); text-anchor: middle; }
+  .lm-pip { font-size: 13px; text-anchor: middle; }
+  .lm-pip.boss { fill: var(--atlas-war); font-weight: bold; }
+  .lm-pip.foes { fill: var(--atlas-war); }
+  .lm-pip.loot { fill: #9a7b28; }
+`;
+
+function renderLocal(root, local, { title, npcs }) {
+  const vm = localViewModel(local, { npcs });
+  root.textContent = '';
+  const style = document.createElement('style');
+  style.textContent = ATLAS_CSS + LOCAL_CSS;
+  root.appendChild(style);
+
+  const frame = document.createElement('div');
+  frame.className = 'frame local';
+  frame.setAttribute('part', 'frame');
+  const heading = title ?? (vm.kind === 'dungeon' ? 'The floor' : 'The streets');
+  const caption = document.createElement('div');
+  caption.className = 'caption';
+  caption.setAttribute('part', 'caption');
+  const t = document.createElement('span');
+  t.className = 'title';
+  t.textContent = heading;
+  const sub = document.createElement('span');
+  sub.className = 'sub';
+  sub.textContent = vm.kind === 'dungeon'
+    ? `${vm.cells.length} rooms · ${vm.links.filter((l) => l.locked).length} locked`
+    : `${vm.cells.length} plots`;
+  caption.append(t, sub);
+  frame.appendChild(caption);
+
+  if (!vm.cells.length) {
+    frame.appendChild(emptyNote('Nothing placed here yet.'));
+    root.appendChild(frame);
+    return vm;
+  }
+
+  const { minX, maxX, minY, maxY } = vm.bounds;
+  const svg = el('svg', {
+    viewBox: `${minX} ${minY} ${maxX - minX} ${maxY - minY}`,
+    role: 'img', part: 'map',
+    'aria-label': `${heading}: ${vm.cells.length} ${vm.kind === 'dungeon' ? 'rooms' : 'plots'}`,
+  });
+  svg.appendChild(el('rect', {
+    x: minX, y: minY, width: maxX - minX, height: maxY - minY,
+    fill: 'var(--atlas-vellum-deep)',
+  }));
+
+  const linkLayer = el('g', { part: 'links' });
+  for (const l of vm.links) {
+    linkLayer.appendChild(el('line', {
+      class: `lm-link${l.locked ? ' locked' : ''}`, part: l.locked ? 'door-locked' : 'door',
+      x1: l.a.x, y1: l.a.y, x2: l.b.x, y2: l.b.y,
+    }));
+  }
+  svg.appendChild(linkLayer);
+
+  const size = vm.cell * 0.62;
+  const cellLayer = el('g', { part: 'cells' });
+  for (const c of vm.cells) {
+    const g = el('g', { class: `lm-cell ${c.role}`, part: 'cell', 'data-id': c.id });
+    g.appendChild(el('rect', {
+      x: c.x - size / 2, y: c.y - size / 2, width: size, height: size, rx: size * 0.14,
+    }));
+    if (c.label) {
+      g.appendChild(el('text', { class: 'name', part: 'cell-label', x: c.x, y: c.y + 4 },
+        c.label.length > 14 ? `${c.label.slice(0, 13)}…` : c.label));
+    } else {
+      g.appendChild(el('text', { class: 'sub', x: c.x, y: c.y + 4 }, c.role));
+    }
+    // Pips say what is IN the room without a legend lookup.
+    const pips = c.tags.filter((tag) => tag !== 'stalls');
+    pips.forEach((tag, i) => {
+      const glyph = tag === 'boss' ? '★' : tag === 'foes' ? '✦' : '◈';
+      g.appendChild(el('text', {
+        class: `lm-pip ${tag}`, part: `pip-${tag}`,
+        x: c.x - (pips.length - 1) * 7 + i * 14, y: c.y + size / 2 - 5,
+      }, glyph));
+    });
+    g.addEventListener('click', () => root.host?.dispatchEvent(new CustomEvent('select-cell', {
+      detail: { id: c.id, kind: vm.kind, label: c.label || c.role },
+      bubbles: true, composed: true,
+    })));
+    cellLayer.appendChild(g);
+  }
+  svg.appendChild(cellLayer);
+  frame.appendChild(svg);
+
+  const legend = document.createElement('div');
+  legend.className = 'legend';
+  legend.setAttribute('part', 'legend');
+  const note = document.createElement('span');
+  note.textContent = vm.kind === 'dungeon'
+    ? '★ boss · ✦ foes · ◈ loot · dashed door = locked'
+    : '◈ goods · the wider plot is the square';
+  legend.appendChild(note);
+  frame.appendChild(legend);
+
   root.appendChild(frame);
   return vm;
 }
