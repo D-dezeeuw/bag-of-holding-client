@@ -79,7 +79,18 @@
   .segmented button { border: 0; border-radius: 0; }
   .segmented button[aria-pressed="true"] { background: var(--accent); color: #221c0c; font-weight: 600; }
 
-  boh-world-map { display: block; margin-bottom: 1.1rem; }
+  boh-world-map, boh-power-graph, boh-dynasty-tree {
+    display: block; margin-bottom: 1.1rem;
+  }
+  [hidden] { display: none !important; }
+  .tabs { display: flex; gap: .3rem; margin-bottom: .7rem; }
+  .tab {
+    padding: .35rem .95rem; border-radius: 5px 5px 0 0;
+    border: 1px solid var(--edge); border-bottom: 0; background: #22212b;
+    color: var(--muted); font-family: inherit; font-size: .85rem; cursor: pointer;
+    font-variant: small-caps; letter-spacing: .06em;
+  }
+  .tab[aria-selected="true"] { background: var(--accent); color: #221c0c; font-weight: 600; }
 
   .readout {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
@@ -123,7 +134,15 @@
     <button id="explore">Discover a province</button>
   </div>
 
-  <boh-world-map id="map"></boh-world-map>
+  <div class="tabs" role="tablist">
+    <button id="tab-map" class="tab" role="tab" aria-selected="true">Map</button>
+    <button id="tab-powers" class="tab" role="tab" aria-selected="false">Powers</button>
+    <button id="tab-dynasties" class="tab" role="tab" aria-selected="false">Dynasties</button>
+  </div>
+
+  <boh-world-map id="view-map"></boh-world-map>
+  <boh-power-graph id="view-powers" hidden></boh-power-graph>
+  <boh-dynasty-tree id="view-dynasties" hidden></boh-dynasty-tree>
 
   <div class="readout">
     <div class="card">
@@ -157,10 +176,14 @@
   import { defineWorldAtlas } from '../src/ui/atlas-views.js';
 
   defineWorldAtlas();
-  const map = document.getElementById('map');
+  const map = document.getElementById('view-map');
+  // Element ids are prefixed so the views never collide with the
+  // readout lists below them.
+  const VIEWS = ['map', 'powers', 'dynasties'];
+  const viewEl = (name) => document.getElementById(`view-${name}`);
   const $ = (id) => document.getElementById(id);
 
-  // URL params make a view shareable: ?seed=1234&continents=3&edition=player&discover=4
+  // URL params make a view shareable: ?seed=1234&continents=3&edition=player&discover=4&view=powers
   const params = new URLSearchParams(location.search);
   for (const [key, id] of [['seed', 'seed'], ['continents', 'continents'], ['provinces', 'provinces']]) {
     if (params.has(key)) $(id).value = params.get(key);
@@ -182,7 +205,8 @@
   function draw() {
     if (!cartridge) return;
     const world = fromCartridge(cartridge, { edition });
-    map.setWorld(world, { title: `World ${cartridge.data.seed}` });
+    const title = `World ${cartridge.data.seed}`;
+    for (const name of VIEWS) viewEl(name).setWorld(world, { title });
     const vm = atlasViewModel(world);
 
     $('stat-provinces').textContent = vm.meta.counts.provinces;
@@ -216,6 +240,14 @@
       `${d.house}, ${d.title ?? 'ruler'}${d.ruler ? ` — ${d.ruler.name}` : ''}`),
       'no crowns known');
   }
+
+  const showView = (view) => {
+    for (const other of VIEWS) {
+      viewEl(other).hidden = other !== view;
+      $(`tab-${other}`).setAttribute('aria-selected', String(other === view));
+    }
+  };
+  for (const view of VIEWS) $(`tab-${view}`).addEventListener('click', () => showView(view));
 
   const syncToggle = () => {
     $('gm').setAttribute('aria-pressed', String(edition === 'gm'));
@@ -252,8 +284,15 @@
   map.addEventListener('select-place', (e) => {
     $('stat-note').textContent = `selected: ${e.detail.name}`;
   });
+  viewEl('powers').addEventListener('select-power', (e) => {
+    $('stat-note').textContent = `selected: ${e.detail.name}`;
+  });
+  viewEl('dynasties').addEventListener('select-crown', (e) => {
+    $('stat-note').textContent = `selected: ${e.detail.house}`;
+  });
 
   syncToggle();
+  showView(VIEWS.includes(params.get('view')) ? params.get('view') : 'map');
   await bake();
   for (let i = Number(params.get('discover') ?? 0); i > 0; i--) discoverOne();
   draw();
