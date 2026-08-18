@@ -287,6 +287,7 @@ any genre.
 | `settlement/economy` | trade / quests / inventory / dialogue-memory helpers |
 | `travel/fsm` `travel/modes` `travel/planner` | the overworld travel state machine, travel modes, and geography-aware journey planning |
 | `ui/initiative` | the initiative tracker: pure view model + `<boh-initiative-tracker>` shadow-DOM element |
+| `ui/atlas` `ui/atlas-views` | the World Atlas: view-time layout + player/GM cuts (pure), and the four shadow-DOM elements — `<boh-world-map>`, `<boh-power-graph>`, `<boh-dynasty-tree>`, `<boh-local-map>` |
 | `output/zip` `output/epub` | store-only ZIP + EPUB builders (canvas cover in the browser; headless with `cover: false` or a supplied PNG) |
 
 ## Going deeper
@@ -295,11 +296,18 @@ any genre.
   every generation knob with its measured envelope (the admin-page surface),
   and the travel contract: roads → priced sea passage → air → discovery-gated
   waygates.
+- [`docs/world-atlas.md`](docs/world-atlas.md) — the four atlas views, why
+  coordinates are invented at view time (and stay stable under fog), what the
+  player cut deletes, and how to embed the elements in an admin page against a
+  live `world_atlas` feed.
 - [`docs/worldgen-lore-tree.md`](docs/worldgen-lore-tree.md) — the worldgen
   design record (phases A–G, all shipped): skeleton → lore → hydration →
   cartridges → crossings → layouts.
 - [`examples/world/`](examples/world) — the flagship end-to-end demo: bake a
   world, hydrate it against a live model, export the EPUB world book.
+- [`examples/atlas.html`](examples/atlas.html) — the World Atlas reference
+  page: bake a world in the browser, toggle GM ↔ Player, watch the fog open
+  one province at a time (self-contained, zero install).
 - [`examples/initiative.html`](examples/initiative.html) — the initiative
   tracker reference page (self-contained, zero install).
 - [`scripts/bake-world.js`](scripts/bake-world.js) — bake a cartridge from the
