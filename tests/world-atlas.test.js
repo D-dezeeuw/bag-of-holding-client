@@ -161,9 +161,64 @@ describe('editions', () => {
     for (const n of hidden) {
       assert.ok(!ids.includes(n.id), `${n.id} leaked into the player cut`);
     }
-    // Serialising the player cut must not carry a hidden name anywhere.
+    // Serialising the player cut must not carry a hidden name — or a hidden
+    // ID — ANYWHERE, not just in geo.nodes. An id is a name one lookup away
+    // the moment the party arrives, and the surviving entities are full of
+    // id lists: a faction's territory, a war's front, a legend's sites.
     const wire = JSON.stringify(cut);
-    for (const n of hidden) assert.ok(!wire.includes(n.name), `${n.name} leaked in the payload`);
+    for (const n of hidden) {
+      assert.ok(!wire.includes(n.name), `${n.name} leaked in the payload`);
+      assert.ok(!wire.includes(n.id), `${n.id} leaked in the payload`);
+    }
+  });
+
+  it('narrows the id lists a surviving entity carries', async () => {
+    // Half a continent known: every faction, war and legend that survives
+    // must have been trimmed to the known half.
+    const cart = await world(1234, { continents: 2, provincesPer: 4, factionCount: 4 });
+    let geo = cart.data.geo;
+    const provinces = Object.values(geo.nodes).filter((n) => n.kind === 'province');
+    const known = provinces.slice(0, 3);
+    for (const n of known) geo = markVisited(geo, n.id);
+    for (const p of new Set(known.map((n) => n.parent))) geo = markVisited(geo, p);
+
+    const cut = playerCut({ ...fromCartridge({ ...cart, data: { ...cart.data, geo } }), edition: 'player' });
+    const visible = new Set(Object.keys(cut.geo.nodes));
+    const powers = new Set(cut.factions.map((f) => f.id));
+
+    for (const f of cut.factions) {
+      for (const pid of f.territory) assert.ok(visible.has(pid), `territory named the unseen ${pid}`);
+      for (const id of [...f.allies, ...f.enemies]) assert.ok(powers.has(id), `relation named the unseen ${id}`);
+    }
+    for (const w of cut.warState?.wars ?? []) {
+      for (const pid of w.front) assert.ok(visible.has(pid), `a war front named the unseen ${pid}`);
+    }
+    for (const l of cut.lore.legends ?? []) {
+      for (const sid of l.sites) assert.ok(visible.has(sid), `a legend named the unseen ${sid}`);
+    }
+    for (const c of cut.lore.crowns ?? []) {
+      for (const r of c.factionRelations ?? []) {
+        assert.ok(powers.has(r.factionId), `a crown named the unseen ${r.factionId}`);
+      }
+    }
+    // The cut is still a WORLD, not an empty husk — narrowing must not have
+    // deleted the thing it was narrowing.
+    assert.ok(cut.factions.length >= 1 && cut.factions.some((f) => f.territory.length));
+  });
+
+  it('keeps a face public and their wants private', async () => {
+    const cart = await world(1234, { continents: 2, provincesPer: 3, factionCount: 4 });
+    let geo = cart.data.geo;
+    for (const n of Object.values(geo.nodes)) geo = markVisited(geo, n.id);
+    const full = fromCartridge({ ...cart, data: { ...cart.data, geo } });
+    assert.ok(full.npcs.some((n) => (n.wants ?? []).length), 'the fixture has no wants to hide');
+
+    const cut = playerCut({ ...full, edition: 'player' });
+    assert.ok(cut.npcs.length, 'the player cut lost every face');
+    for (const n of cut.npcs) {
+      assert.ok(!('wants' in n), `${n.name} told the table what they are after`);
+      assert.ok(n.name && n.voice !== undefined, 'a face still has a name and a voice');
+    }
   });
 
   it('strips GM-only lore fields from the player cut', async () => {
@@ -188,10 +243,17 @@ describe('editions', () => {
     assert.deepEqual(vm.meta.counts.provinces, 0);
   });
 
-  it('fromAtlasPayload takes the server-scoped shape as-is', () => {
+  it('fromAtlasPayload takes the server-scoped shape', () => {
     const payload = {
       seed: 7, revision: 2, edition: 'player',
-      geo: { nodes: { 'continent-0': { id: 'continent-0', kind: 'continent', name: 'Ashmoor', discovered: true } }, edges: [] },
+      worldId: 'world-1234', campaign: 'curse-of-the-fen', digest: '8ab3f21c',
+      geo: {
+        nodes: {
+          'continent-0': { id: 'continent-0', kind: 'continent', name: 'Ashmoor', discovered: true },
+          'continent-0.province-0': { id: 'continent-0.province-0', kind: 'province', name: 'Wickmere', parent: 'continent-0', discovered: true },
+        },
+        edges: [],
+      },
       factions: [], npcs: [], warState: null, lore: {},
     };
     const world = fromAtlasPayload(payload);
@@ -199,6 +261,78 @@ describe('editions', () => {
     assert.equal(world.revision, 2);
     const vm = atlasViewModel(world);
     assert.equal(vm.meta.revision, 2);
+    // Identity travels with the feed, so a host can caption the map with the
+    // campaign and revision it is actually looking at.
+    assert.equal(vm.meta.worldId, 'world-1234');
+    assert.equal(vm.meta.campaign, 'curse-of-the-fen');
+    assert.equal(vm.meta.digest, '8ab3f21c');
+  });
+
+  it('fromAtlasPayload keeps the SERVER\'s worldShape, not the fogged count', () => {
+    // The whole point of worldShape is that it counts landmasses the party
+    // has not found yet. Recomputing it from the fogged geography would
+    // shrink it to the visible count and rotate the ring under the table.
+    const payload = {
+      seed: 7, edition: 'player', worldShape: { continents: 5 },
+      geo: {
+        nodes: {
+          'continent-1': { id: 'continent-1', kind: 'continent', name: 'Ashmoor', discovered: true },
+          'continent-1.province-0': { id: 'continent-1.province-0', kind: 'province', name: 'Wickmere', parent: 'continent-1', discovered: true },
+        },
+        edges: [],
+      },
+    };
+    const world = fromAtlasPayload(payload);
+    assert.deepEqual(world.worldShape, { continents: 5 });
+    // And it reaches the layout: a 5-slot ring puts continent-1 further out
+    // than a 1-slot ring would.
+    const wide = atlasViewModel(world);
+    const narrow = atlasViewModel({ ...world, worldShape: { continents: 1 } });
+    const radius = (vm) => Math.hypot(vm.map.continents[0].x, vm.map.continents[0].y);
+    assert.ok(radius(wide) > radius(narrow), 'worldShape did not reach worldLayout');
+  });
+
+  it('fromAtlasPayload re-cuts a payload that only CLAIMS to be player-safe', () => {
+    // Defence in depth. The server's cut is the real boundary, but a label
+    // the client takes on faith is a leak waiting for one bad deployment.
+    const payload = {
+      seed: 7, edition: 'player',
+      geo: {
+        nodes: {
+          'continent-0': { id: 'continent-0', kind: 'continent', name: 'Ashmoor', discovered: true },
+          'continent-0.province-0': { id: 'continent-0.province-0', kind: 'province', name: 'Wickmere', parent: 'continent-0', discovered: true },
+          'continent-0.province-1': { id: 'continent-0.province-1', kind: 'province', name: 'The Sunken Vault', parent: 'continent-0', discovered: false },
+        },
+        edges: [{ from: 'continent-0.province-0', to: 'continent-0.province-1', kind: 'road', days: 2, discovered: false }],
+      },
+      lore: {
+        legends: [{ id: 'legend-0', name: 'The Drowned Bell', sites: ['continent-0.province-0'], kernelOfTruth: 'the bell is a person', payoff: 'it rings for the king' }],
+        crowns: [],
+      },
+    };
+    const cut = fromAtlasPayload(payload);
+    const json = JSON.stringify(cut);
+    assert.equal(cut.geo.nodes['continent-0.province-1'], undefined);
+    assert.equal(cut.geo.edges.length, 0);
+    for (const secret of ['The Sunken Vault', 'the bell is a person', 'it rings for the king']) {
+      assert.ok(!json.includes(secret), `payload leaked: ${secret}`);
+    }
+  });
+
+  it('fromAtlasPayload leaves a gm payload whole', () => {
+    const payload = {
+      seed: 7, edition: 'gm',
+      geo: {
+        nodes: {
+          'continent-0': { id: 'continent-0', kind: 'continent', name: 'Ashmoor', discovered: false },
+          'continent-0.province-1': { id: 'continent-0.province-1', kind: 'province', name: 'The Sunken Vault', parent: 'continent-0', discovered: false },
+        },
+        edges: [],
+      },
+    };
+    const world = fromAtlasPayload(payload);
+    assert.equal(world.edition, 'gm');
+    assert.ok(world.geo.nodes['continent-0.province-1'], 'the spoiler cut lost a node');
   });
 });
 
