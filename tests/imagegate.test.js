@@ -217,3 +217,45 @@ describe('composeImagePrompt', () => {
     assert.throws(() => composeImagePrompt(), /needs a `scene`/);
   });
 });
+
+describe('grant ids', () => {
+  it('the default id stays derived from the counters, so replays match', () => {
+    const gate = enableImages(emptyImageGate(), {});
+    const first = spendImageRender(gate, T0, {});
+    assert.equal(first.grant.id, 'g-1-' + T0);
+    const second = spendImageRender(first.gate, T0 + IMAGE_TIERS.free.cooldownMs, {});
+    assert.equal(second.grant.id, 'g-2-' + (T0 + IMAGE_TIERS.free.cooldownMs));
+  });
+
+  it('a caller can mint unguessable ids without giving up determinism for everyone', () => {
+    // A predictable grant id is a forgeable one as soon as a server mints
+    // grants for more than one tenant. Browser hosts keep the deterministic
+    // default; a multi-tenant server passes its own source.
+    const seen = [];
+    const gate = enableImages(emptyImageGate(), {});
+    const out = spendImageRender(gate, T0, {
+      prompt: 'a lantern in fog',
+      mintId: (ctx) => { seen.push(ctx); return 'grant_2f7c9a'; },
+    });
+    assert.equal(out.grant.id, 'grant_2f7c9a');
+    assert.deepEqual(seen, [{ renders: 1, now: T0 }]);
+    // Everything else about the grant is unchanged.
+    assert.equal(out.grant.prompt, 'a lantern in fog');
+    assert.equal(out.grant.issuedAt, T0);
+    assert.ok(out.grant.expiresAt > T0);
+  });
+
+  it('a minter returning a non-string is coerced rather than trusted', () => {
+    const out = spendImageRender(enableImages(emptyImageGate(), {}), T0, { mintId: () => 12345 });
+    assert.equal(out.grant.id, '12345');
+    assert.equal(typeof out.grant.id, 'string');
+  });
+
+  it('a refused spend mints nothing at all', () => {
+    let called = 0;
+    const disabled = emptyImageGate();
+    const out = spendImageRender(disabled, T0, { mintId: () => { called += 1; return 'x'; } });
+    assert.equal(out.grant, null);
+    assert.equal(called, 0, 'no render, no id, no cost');
+  });
+});

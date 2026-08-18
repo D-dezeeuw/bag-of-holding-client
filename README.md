@@ -43,6 +43,10 @@ reusable.
 - **Image pipeline + gate** — scene-image generation, TTS/STT, and the pure
   `imagegate` budget (off by default, rolling window, cooldown) shared with the
   MCP server, plus browser-side one-shot grant redemption (`redeemImageGrant`).
+- **BYOK *or* a hosted tenant** — point a config at a provider with the
+  player's own key, or at a deployment's OpenAI-compatible relay with a tenant
+  token (`tenantConfig`, `probeRelay`); the `relaygate` budget that decides what
+  a token may spend is pure and shared with the server that enforces it.
 - **Initiative tracker** — `<boh-initiative-tracker>`: a pure view model +
   shadow-DOM element with baked styles, a kernel-shape adapter
   (`rollEncounterInitiative`), and a reference demo page.
@@ -122,6 +126,25 @@ await chatStream(
   (chunk) => render(chunk),
   { field: 'narration' },
 );
+```
+
+The config above is BYOK: `key` is the player's, and every call bills their
+account. A host that talks to a *hosted* deployment instead swaps the config and
+changes nothing else — the relay speaks the same OpenAI-compatible contract, so
+`chatCompletion`, `chatStream`, `generateImage` and the catalog healer all work
+unchanged:
+
+```js
+import { tenantConfig, probeRelay } from '@zeeuw/bag-of-holding-client';
+
+// The player pastes a tenant token; the deployment holds the provider key and
+// applies the tier budget. `serverUrl` may be the bare host or the MCP URL.
+const config = tenantConfig({ serverUrl: 'https://boh.example.com', token, onTokens: meter });
+
+const live = await probeRelay(config);   // never throws
+// → { ok: true, tier: 'patron', models, budget }            token is live
+// → { ok: false, reason: 'rejected' | 'unreachable' | 'not-a-relay' }
+if (live.ok && live.models) useModels(live.models);   // the tier's allowed ids
 ```
 
 ### 2 · Generate a world (blueprint → pipeline)
@@ -251,6 +274,7 @@ any genre.
 | `llm/catalog` `llm/image` `llm/audio` | live model-catalog healing, scene-image generation, TTS/STT — all under the same deadlines and cost accounting |
 | `llm/imagegate` | whether a scene image may be made at all: off by default, tiered budget per rolling window, cooldown, one-shot render grants — pure, so the browser host and the MCP server share one answer |
 | `llm/redeem` | browser-side redemption of the gate's one-shot render grants (keyless deployments) |
+| `llm/relaygate` `llm/tenant` | the other half of "who pays": a tenant token's token-per-window allowance (pure, enforced by the deployment that holds the provider key) and the config/probe helpers that point a host at its relay |
 | `llm/prompts` `llm/narrate` | the AI-narration scaffolding (per-kind templates, cache keys, `NARRATION_SCHEMA`) and the end-to-end `narrate()` loop with LRU cache + one repair pass |
 | `worldgen/rng` `worldgen/blueprint` `worldgen/pipeline` `worldgen/schemas` `worldgen/tones` `worldgen/geography` | seeded blueprint + resumable pipeline runner + layer schemas + the shared tone vocabulary + the region graph |
 | `worldgen/skeleton` `worldgen/lore` `worldgen/hydrate` | the seeded world skeleton (continents/climates/names), lore entities (eras, legends, crowns, factions, war state), and LLM hydration with post-conditions |
