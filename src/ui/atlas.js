@@ -345,6 +345,17 @@ export function playerCut(world) {
   const factions = (world.factions ?? []).filter(
     (f) => (f.territory ?? []).some((pid) => provinceIds.has(pid)));
   const factionIds = new Set(factions.map((f) => f.id));
+  const crowns = (world.lore?.crowns ?? [])
+    .filter((c) => provinceIds.has(c.id.replace(/\.crown$/, '')));
+  const crownIds = new Set(crowns.map((c) => c.id));
+
+  // Surviving an entity is not the same as surviving WHOLE. A faction the
+  // party has heard of still lists territory across provinces they have
+  // never walked, a war still names its whole front, a legend still names
+  // its sites — and each of those is a place id, which is a place NAME
+  // waiting to be read off the wire. Every id-list a survivor carries is
+  // narrowed to what the table already knows about.
+  const knownOf = (ids, set) => (ids ?? []).filter((id) => set.has(id));
 
   return {
     ...world,
@@ -353,21 +364,33 @@ export function playerCut(world) {
     // geometry as new coasts appear. A count, never a name.
     worldShape: { continents: Object.values(geo.nodes ?? {}).filter((n) => n.kind === 'continent').length },
     geo: { ...geo, nodes: known, edges },
-    factions: factions.map(({ gm, ...f }) => f),
-    npcs: (world.npcs ?? []).filter((n) => factionIds.has(n.leads)).map(({ gm, ...n }) => n),
+    factions: factions.map(({ gm, ...f }) => ({
+      ...f,
+      territory: knownOf(f.territory, provinceIds),
+      allies: knownOf(f.allies, factionIds),
+      enemies: knownOf(f.enemies, factionIds),
+    })),
+    // A face is public; what they are AFTER is a table secret — the same
+    // line world_export's gm cut draws. A ruler whose throne the party has
+    // not found keeps their name and loses the seat, which is an id for a
+    // province nobody has been to.
+    npcs: (world.npcs ?? []).filter((n) => factionIds.has(n.leads))
+      .map(({ gm, wants, ...n }) => ({ ...n, seatOf: crownIds.has(n.seatOf) ? n.seatOf : null })),
     warState: world.warState
       ? { ...world.warState,
-          wars: (world.warState.wars ?? []).filter(
-            (w) => (w.between ?? []).some((id) => factionIds.has(id))) }
+          wars: (world.warState.wars ?? [])
+            .filter((w) => (w.between ?? []).some((id) => factionIds.has(id)))
+            .map((w) => ({ ...w, front: knownOf(w.front, provinceIds) })) }
       : null,
     lore: {
       ...world.lore,
-      crowns: (world.lore?.crowns ?? [])
-        .filter((c) => provinceIds.has(c.id.replace(/\.crown$/, '')))
-        .map(({ stanceOnThreat, ...c }) => c),
+      crowns: crowns.map(({ stanceOnThreat, ...c }) => ({
+        ...c,
+        factionRelations: (c.factionRelations ?? []).filter((r) => factionIds.has(r.factionId)),
+      })),
       legends: (world.lore?.legends ?? [])
         .filter((l) => (l.sites ?? []).some((s) => provinceIds.has(s)))
-        .map(({ kernelOfTruth, payoff, ...l }) => l),
+        .map(({ kernelOfTruth, payoff, ...l }) => ({ ...l, sites: knownOf(l.sites, provinceIds) })),
     },
   };
 }

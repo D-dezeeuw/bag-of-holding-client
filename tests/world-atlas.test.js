@@ -161,9 +161,64 @@ describe('editions', () => {
     for (const n of hidden) {
       assert.ok(!ids.includes(n.id), `${n.id} leaked into the player cut`);
     }
-    // Serialising the player cut must not carry a hidden name anywhere.
+    // Serialising the player cut must not carry a hidden name — or a hidden
+    // ID — ANYWHERE, not just in geo.nodes. An id is a name one lookup away
+    // the moment the party arrives, and the surviving entities are full of
+    // id lists: a faction's territory, a war's front, a legend's sites.
     const wire = JSON.stringify(cut);
-    for (const n of hidden) assert.ok(!wire.includes(n.name), `${n.name} leaked in the payload`);
+    for (const n of hidden) {
+      assert.ok(!wire.includes(n.name), `${n.name} leaked in the payload`);
+      assert.ok(!wire.includes(n.id), `${n.id} leaked in the payload`);
+    }
+  });
+
+  it('narrows the id lists a surviving entity carries', async () => {
+    // Half a continent known: every faction, war and legend that survives
+    // must have been trimmed to the known half.
+    const cart = await world(1234, { continents: 2, provincesPer: 4, factionCount: 4 });
+    let geo = cart.data.geo;
+    const provinces = Object.values(geo.nodes).filter((n) => n.kind === 'province');
+    const known = provinces.slice(0, 3);
+    for (const n of known) geo = markVisited(geo, n.id);
+    for (const p of new Set(known.map((n) => n.parent))) geo = markVisited(geo, p);
+
+    const cut = playerCut({ ...fromCartridge({ ...cart, data: { ...cart.data, geo } }), edition: 'player' });
+    const visible = new Set(Object.keys(cut.geo.nodes));
+    const powers = new Set(cut.factions.map((f) => f.id));
+
+    for (const f of cut.factions) {
+      for (const pid of f.territory) assert.ok(visible.has(pid), `territory named the unseen ${pid}`);
+      for (const id of [...f.allies, ...f.enemies]) assert.ok(powers.has(id), `relation named the unseen ${id}`);
+    }
+    for (const w of cut.warState?.wars ?? []) {
+      for (const pid of w.front) assert.ok(visible.has(pid), `a war front named the unseen ${pid}`);
+    }
+    for (const l of cut.lore.legends ?? []) {
+      for (const sid of l.sites) assert.ok(visible.has(sid), `a legend named the unseen ${sid}`);
+    }
+    for (const c of cut.lore.crowns ?? []) {
+      for (const r of c.factionRelations ?? []) {
+        assert.ok(powers.has(r.factionId), `a crown named the unseen ${r.factionId}`);
+      }
+    }
+    // The cut is still a WORLD, not an empty husk — narrowing must not have
+    // deleted the thing it was narrowing.
+    assert.ok(cut.factions.length >= 1 && cut.factions.some((f) => f.territory.length));
+  });
+
+  it('keeps a face public and their wants private', async () => {
+    const cart = await world(1234, { continents: 2, provincesPer: 3, factionCount: 4 });
+    let geo = cart.data.geo;
+    for (const n of Object.values(geo.nodes)) geo = markVisited(geo, n.id);
+    const full = fromCartridge({ ...cart, data: { ...cart.data, geo } });
+    assert.ok(full.npcs.some((n) => (n.wants ?? []).length), 'the fixture has no wants to hide');
+
+    const cut = playerCut({ ...full, edition: 'player' });
+    assert.ok(cut.npcs.length, 'the player cut lost every face');
+    for (const n of cut.npcs) {
+      assert.ok(!('wants' in n), `${n.name} told the table what they are after`);
+      assert.ok(n.name && n.voice !== undefined, 'a face still has a name and a voice');
+    }
   });
 
   it('strips GM-only lore fields from the player cut', async () => {
