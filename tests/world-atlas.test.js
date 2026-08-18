@@ -1,4 +1,4 @@
-// tests/atlas.test.js — the World Atlas core.
+// tests/world-atlas.test.js — the World Atlas core.
 //
 // What must hold: the layout is DETERMINISTIC (a world always draws the
 // same map, or the atlas is a different picture every session); the
@@ -14,6 +14,7 @@ import { bakeCartridge } from '../src/worldgen/cartridge.js';
 import { markVisited } from '../src/worldgen/geography.js';
 import {
   atlasViewModel, worldLayout, fromCartridge, playerCut, fromAtlasPayload, CLIMATE_COLORS,
+  groupDynasties, relationEdges,
 } from '../src/ui/atlas.js';
 import { defineWorldAtlas } from '../src/ui/atlas-views.js';
 
@@ -201,5 +202,88 @@ describe('editions', () => {
 describe('element registration', () => {
   it('is a clean no-op where custom elements do not exist', () => {
     assert.equal(defineWorldAtlas(), null);
+  });
+});
+
+describe('power graph data', () => {
+  it('draws each relation once, never twice', async () => {
+    // Enmity is recorded on BOTH factions. Drawing it per-faction doubles
+    // every stroke (and its opacity); the pair is the unit.
+    const cart = await world(1234, { continents: 3, provincesPer: 3, factionCount: 6 });
+    const vm = atlasViewModel(fromCartridge(cart));
+    const edges = relationEdges(vm.powers);
+    const keys = edges.map((e) => [e.from, e.to].sort().join('|') + `|${e.kind}`);
+    assert.equal(new Set(keys).size, keys.length, 'a relation was drawn twice');
+    // Every recorded relation still appears exactly once.
+    const recorded = new Set();
+    for (const p of vm.powers) {
+      for (const [kind, ids] of [['ally', p.allies], ['enemy', p.enemies]]) {
+        for (const o of ids ?? []) recorded.add([p.id, o].sort().join('|') + `|${kind}`);
+      }
+    }
+    assert.deepEqual(new Set(keys), recorded);
+  });
+
+  it('never points a chord at a power that is not on the graph', async () => {
+    // The player cut drops powers holding no known ground; their former
+    // allies must not keep an edge to a node that was never placed.
+    const cart = await world(1234);
+    let geo = cart.data.geo;
+    const first = Object.values(geo.nodes).find((n) => n.kind === 'province');
+    geo = markVisited(geo, first.id);
+    geo = markVisited(geo, first.parent);
+    const vm = atlasViewModel(
+      fromCartridge({ ...cart, data: { ...cart.data, geo } }, { edition: 'player' }));
+    const ids = new Set(vm.powers.map((p) => p.id));
+    for (const e of relationEdges(vm.powers)) {
+      assert.ok(ids.has(e.from) && ids.has(e.to), `${e.from}→${e.to} leaves the graph`);
+    }
+  });
+});
+
+describe('dynasty grouping', () => {
+  it('files every crown under its power, unclaimed ones last', async () => {
+    const cart = await world(1234, { continents: 2, provincesPer: 3, factionCount: 4 });
+    const vm = atlasViewModel(fromCartridge(cart));
+    const groups = groupDynasties(vm.dynasties, vm.powers);
+
+    // No crown is lost, none is duplicated.
+    const filed = groups.flatMap((g) => g.crowns.map((c) => c.id));
+    assert.equal(filed.length, vm.dynasties.length);
+    assert.equal(new Set(filed).size, filed.length);
+
+    // Claimed groups come first; the unclaimed group is last if present.
+    const unclaimedAt = groups.findIndex((g) => !g.faction);
+    if (unclaimedAt !== -1) assert.equal(unclaimedAt, groups.length - 1);
+    for (const g of groups.filter((x) => x.faction)) {
+      assert.ok(vm.powers.some((p) => p.id === g.faction.id), 'group names a real power');
+      for (const c of g.crowns) assert.equal(c.faction.id, g.faction.id);
+    }
+  });
+
+  it('carries the power archetype for the group heading', async () => {
+    const cart = await world(1234, { factionCount: 4 });
+    const vm = atlasViewModel(fromCartridge(cart));
+    for (const g of groupDynasties(vm.dynasties, vm.powers).filter((x) => x.faction)) {
+      const power = vm.powers.find((p) => p.id === g.faction.id);
+      assert.equal(g.archetype, power.archetype ?? null);
+    }
+  });
+});
+
+describe('a cast the table can tell apart', () => {
+  it('gives every power a distinct name and every leader a distinct voice', async () => {
+    // Both were visible in the atlas the moment it was drawn: two powers
+    // called the same thing, two rulers with one manner of speaking.
+    const { NPC_VOICES } = await import('../src/worldgen/lore.js');
+    for (const seed of [1, 42, 1234, 9999]) {
+      const cart = await world(seed, { continents: 3, provincesPer: 3, factionCount: 6 });
+      const names = cart.data.factions.map((f) => f.name);
+      assert.equal(new Set(names).size, names.length, `seed ${seed} repeated a faction name`);
+      const voices = cart.data.npcs.map((n) => n.voice);
+      if (voices.length <= NPC_VOICES.length) {
+        assert.equal(new Set(voices).size, voices.length, `seed ${seed} repeated a voice`);
+      }
+    }
   });
 });

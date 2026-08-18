@@ -153,6 +153,25 @@ export function mintFactionStubs(seed, { provincesByContinent, slots = null, cou
   if (!continents.length) return [];
   const n = count ?? (slots?.length || 3);
 
+  // Names dedup the same stream-preserving way the skeleton's do: the
+  // primary draw is untouched, and only a REPEAT walks the ordered combo
+  // grid for the first unused pair. Two factions called The Palewater
+  // Banner is a world with two of the same power in it.
+  const takenNames = new Set();
+  const uniqueName = (name) => {
+    if (!takenNames.has(name)) { takenNames.add(name); return name; }
+    for (const a of FACTION_NAME_A) {
+      for (const b of FACTION_NAME_B) {
+        const alt = `The ${a} ${b}`;
+        if (!takenNames.has(alt)) { takenNames.add(alt); return alt; }
+      }
+    }
+    for (let i = 2; ; i++) {
+      const alt = `${name} ${'I'.repeat(i)}`;
+      if (!takenNames.has(alt)) { takenNames.add(alt); return alt; }
+    }
+  };
+
   const factions = [];
   for (let i = 0; i < n; i++) {
     const home = continents[i % continents.length];
@@ -160,7 +179,7 @@ export function mintFactionStubs(seed, { provincesByContinent, slots = null, cou
     const territory = mine.length ? pickN(mine, Math.min(mine.length, randInt(1, 2, rng)), rng) : [];
     factions.push({
       id: `faction-${i}`,
-      name: `The ${pick(FACTION_NAME_A, rng)} ${pick(FACTION_NAME_B, rng)}`,
+      name: uniqueName(`The ${pick(FACTION_NAME_A, rng)} ${pick(FACTION_NAME_B, rng)}`),
       archetype: slots?.[i]?.type ?? null,
       territory,
       allies: [],
@@ -243,6 +262,17 @@ export function mintNpcStubs(seed, { crowns = [], factions = [], npcsPerFaction 
   const rng = mulberry32(((seed ?? 1) + 606) >>> 0);
   const perFaction = Math.max(1, Math.trunc(npcsPerFaction));
   const npcs = [];
+  // A voice is how a DM performs the character on sight; two leaders
+  // sharing one is a tell. Spend the table before repeating — the draw
+  // itself is untouched, so a cast that fits keeps its old voices.
+  const usedVoices = new Set();
+  const voiceFor = () => {
+    const drawn = pick(NPC_VOICES, rng);
+    if (!usedVoices.has(drawn)) { usedVoices.add(drawn); return drawn; }
+    const free = NPC_VOICES.find((v) => !usedVoices.has(v));
+    if (free) { usedVoices.add(free); return free; }
+    return drawn;   // more faces than voices: repetition is now honest
+  };
   for (const f of factions) {
     const throne = crowns.find(c =>
       c.factionRelations?.some(r => r.factionId === f.id && r.stance === 'sovereign'));
@@ -253,7 +283,7 @@ export function mintNpcStubs(seed, { crowns = [], factions = [], npcsPerFaction 
       role: throne ? 'sovereign' : 'leader',
       seatOf: throne?.id ?? null,
       leads: f.id,
-      voice: pick(NPC_VOICES, rng),
+      voice: voiceFor(),
       wants: pickN(NPC_WANTS, 2, rng),
       stub: true,
     });
@@ -267,7 +297,7 @@ export function mintNpcStubs(seed, { crowns = [], factions = [], npcsPerFaction 
         role: 'notable',
         seatOf: null,
         leads: f.id,
-        voice: pick(NPC_VOICES, rng),
+        voice: voiceFor(),
         wants: pickN(NPC_WANTS, 2, rng),
         stub: true,
       });

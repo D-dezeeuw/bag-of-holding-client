@@ -342,3 +342,52 @@ export function playerCut(world) {
     },
   };
 }
+
+/**
+ * Group crowns under the power that claims them, for the dynasty view.
+ * Unclaimed crowns get their own trailing group rather than vanishing;
+ * powers come first, biggest first, so the page reads top-down.
+ *
+ *   → [{ faction: {id,name}|null, archetype, crowns: [...] }]
+ */
+export function groupDynasties(dynasties = [], powers = []) {
+  const groups = new Map();
+  for (const d of dynasties) {
+    const key = d.faction?.id ?? '';
+    if (!groups.has(key)) {
+      groups.set(key, {
+        faction: d.faction ?? null,
+        archetype: powers.find((p) => p.id === d.faction?.id)?.archetype ?? null,
+        crowns: [],
+      });
+    }
+    groups.get(key).crowns.push(d);
+  }
+  return [...groups.values()].sort(
+    (a, b) => (a.faction ? 0 : 1) - (b.faction ? 0 : 1) || b.crowns.length - a.crowns.length);
+}
+
+/**
+ * The relation chords the power graph draws: one entry per PAIR, never
+ * two (an enmity is recorded on both sides, and drawing it twice doubles
+ * every stroke's opacity).
+ *
+ *   → [{ from, to, kind: 'ally'|'enemy' }]
+ */
+export function relationEdges(powers = []) {
+  const known = new Set(powers.map((p) => p.id));
+  const seen = new Set();
+  const out = [];
+  for (const p of powers) {
+    for (const [kind, ids] of [['ally', p.allies], ['enemy', p.enemies]]) {
+      for (const other of ids ?? []) {
+        if (!known.has(other) || other === p.id) continue;
+        const key = [p.id, other].sort().join('|') + `|${kind}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ from: p.id, to: other, kind });
+      }
+    }
+  }
+  return out;
+}
