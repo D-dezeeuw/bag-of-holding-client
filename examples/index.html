@@ -1,0 +1,108 @@
+<!doctype html>
+<!--
+  The client home — the front door for every browser surface this
+  package ships.
+
+  Serve the repo root (npx http-server) and open /examples/. A deployed
+  host maps this to `/` and each page below to its own short path; the
+  MCP server's UI listener does exactly that (see its src/ui-server.js).
+
+  Adding a tool here is two lines: a <a class="card"> below, and a row in
+  whatever route table the host uses. Everything is self-contained — no
+  build step, no dependencies, no key.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bag-of-holding — the client</title>
+<style>
+  :root {
+    --page: #14131a;
+    --panel: #1d1c25;
+    --edge: #322f3d;
+    --text: #e9e3d5;
+    --muted: #a49c8a;
+    --accent: #c8a558;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 3.5rem 1.25rem 4rem;
+    background:
+      radial-gradient(1200px 500px at 50% -10%, #262433 0%, transparent 60%),
+      var(--page);
+    color: var(--text);
+    font-family: Georgia, 'Iowan Old Style', serif;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 46rem; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 2.25rem; }
+  h1 {
+    margin: 0 0 .5rem; font-size: 2.1rem; font-variant: small-caps;
+    letter-spacing: .07em; font-weight: 500;
+  }
+  h1 .mark { color: var(--accent); }
+  .tagline { margin: 0; color: var(--muted); font-size: .95rem; font-style: italic; }
+
+  .cards { display: grid; gap: .9rem; }
+  .card {
+    display: block; padding: 1.15rem 1.3rem;
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 10px;
+    color: inherit; text-decoration: none;
+    transition: border-color .15s ease, transform .15s ease;
+  }
+  .card:hover, .card:focus-visible {
+    border-color: var(--accent); transform: translateY(-1px); outline: none;
+  }
+  .card h2 {
+    margin: 0 0 .35rem; font-size: 1.15rem; font-variant: small-caps;
+    letter-spacing: .05em; font-weight: 500; color: var(--accent);
+  }
+  .card p { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.55; }
+
+  footer {
+    margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--edge);
+    color: var(--muted); font-size: .82rem; line-height: 1.6; text-align: center;
+  }
+  footer code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .95em; color: var(--text);
+  }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Bag of <span class="mark">Holding</span></h1>
+    <p class="tagline">Table software for a game that remembers.</p>
+  </header>
+
+  <div class="cards">
+    <a class="card" href="atlas.html" data-route="/atlas">
+      <h2>The World Atlas</h2>
+      <p>Look at a generated world: continents and climates, sea lanes and
+      waygates, the powers and their wars, the crowns and who wears them,
+      and the floor plan of a single place. Toggle between the GM's
+      spoiler view and the player's — where undiscovered ground is deleted
+      from the data, not dimmed.</p>
+    </a>
+
+    <a class="card" href="initiative.html" data-route="/initiative">
+      <h2>Initiative Tracker</h2>
+      <p>Roll a combat order and run the round: turn advance, conditions,
+      concentration and death saves, kept honest by the engine rather than
+      by whoever is holding the pen.</p>
+    </a>
+  </div>
+
+  <footer>
+    Every page here is plain ES modules over static files — no build step,
+    no dependencies, no key. To render a real campaign instead of a rolled
+    one, a host feeds these components a baked cartridge or the MCP
+    server's <code>world_atlas</code> payload; see
+    <a href="https://github.com/D-dezeeuw/bag-of-holding-client/blob/main/docs/world-atlas.md">docs/world-atlas.md</a>.
+  </footer>
+</div>
+</body>
+</html>
