@@ -240,6 +240,12 @@ export function atlasViewModel(world = {}, { seed = null } = {}) {
       seed: world.seed ?? null,
       settingId: world.settingId ?? null,
       revision: world.revision ?? null,
+      // Identity, when the caller knows it. A live feed does (it came from
+      // one campaign pinned to one world at one revision); a cartridge read
+      // off disk usually does not, and null is the honest answer there.
+      worldId: world.worldId ?? null,
+      campaign: world.campaign ?? null,
+      digest: world.digest ?? null,
       counts: {
         continents: continents.length,
         provinces: provinces.length,
@@ -280,12 +286,31 @@ export function fromCartridge(cartridge, { edition = 'gm', ledger = null, fold =
   return edition === 'player' ? playerCut(world) : world;
 }
 
-/** Accept the MCP `world_atlas` payload (already player-scoped server-side). */
+/**
+ * Accept the MCP `world_atlas` payload — a live campaign's world as the
+ * server chose to reveal it.
+ *
+ * The server has already cut the payload for the edition it labelled, and
+ * that cut is the real boundary: it decides what leaves the machine holding
+ * the secrets. This function re-applies `playerCut` on top of a `player`
+ * payload anyway. On a correctly cut feed that is a no-op — every node left
+ * in it is discovered — so the cost is nothing, and the label stops being a
+ * promise the client takes on faith.
+ *
+ * `worldShape` survives that second cut explicitly. It is a COUNT of the
+ * world's landmasses, deliberately fog-safe, and it is what keeps the ring
+ * of continents from rotating under the party every time a new coast is
+ * sighted. Recomputing it from the fogged geography would defeat its whole
+ * purpose, so the server's number wins.
+ */
 export function fromAtlasPayload(payload = {}) {
-  return {
+  const world = {
     seed: payload.seed ?? null,
     settingId: payload.settingId ?? null,
     revision: payload.revision ?? null,
+    worldId: payload.worldId ?? null,
+    campaign: payload.campaign ?? null,
+    digest: payload.digest ?? null,
     geo: payload.geo ?? { nodes: {}, edges: [] },
     factions: payload.factions ?? [],
     npcs: payload.npcs ?? [],
@@ -293,6 +318,10 @@ export function fromAtlasPayload(payload = {}) {
     lore: payload.lore ?? {},
     edition: payload.edition === 'gm' ? 'gm' : 'player',
   };
+  if (world.edition === 'gm') return world;
+  const shape = payload.worldShape ?? null;
+  const cut = playerCut(world);
+  return shape ? { ...cut, worldShape: shape } : cut;
 }
 
 /**
