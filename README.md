@@ -305,6 +305,9 @@ any genre.
   cartridges → crossings → layouts.
 - [`examples/world/`](examples/world) — the flagship end-to-end demo: bake a
   world, hydrate it against a live model, export the EPUB world book.
+- [`examples/index.html`](examples/index.html) — the client home: the front
+  door to every browser page here. The three `examples/*.html` pages ship in
+  the package, so a host can serve them straight out of `node_modules`.
 - [`examples/atlas.html`](examples/atlas.html) — the World Atlas reference
   page: bake a world in the browser, toggle GM ↔ Player, watch the fog open
   one province at a time (self-contained, zero install).
